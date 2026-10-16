@@ -187,7 +187,7 @@ namespace Wyrdbound
 
         public void Toast(string text, Color c)
         {
-            var t = UIK.Txt(TopLayer, text, 34, c, TextAnchor.MiddleCenter, FontStyle.Bold, "toast");
+            var t = UIK.Txt(HudLayer, text, 34, c, TextAnchor.MiddleCenter, FontStyle.Bold, "toast");
             t.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0.5f, 0.5f), new Vector2(0, 240), new Vector2(1000, 50));
             toasts.Add((t, 0f));
         }

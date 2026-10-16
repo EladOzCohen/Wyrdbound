@@ -62,6 +62,7 @@ namespace Wyrdbound
             Team = Team.Enemy;
             Elite = elite && !def.Boss;
             DisplayName = (Elite ? "Armored " : "") + def.Name;
+            hpMult *= def.Boss ? EnemyDefs.BossHpScale : EnemyDefs.HpScale;
             MaxHP = HP = def.HP * hpMult;
             Radius = def.Radius;
             Mass = def.Mass;

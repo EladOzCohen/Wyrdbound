@@ -61,6 +61,13 @@ namespace Wyrdbound
         public bool ThreadUsedThisRegion;
         public bool StoryThisRegion;
         public bool ShopThisRegion;
+        public bool MiniThisRegion;
+
+        public void EnterRegion()
+        {
+            ThreadUsedThisRegion = StoryThisRegion = ShopThisRegion = MiniThisRegion = false;
+            RegionTime = 0f;
+        }
         public int BoonsSinceStart;
         public RoomPlan Room;
         public string LastHitBy = "";

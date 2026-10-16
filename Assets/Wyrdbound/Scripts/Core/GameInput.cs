@@ -50,6 +50,15 @@ namespace Wyrdbound
 
         public bool NavUp, NavDown, NavLeft, NavRight;
 
+        /// <summary>Virtual controller driven by the automated play-test.</summary>
+        public sealed class TestPad
+        {
+            public Vector2 Move;
+            public bool Attack, Special, Cast, Dash, Call, Confirm, Cancel;
+        }
+
+        public TestPad Pad;
+
         public void Update()
         {
             prev = now;
@@ -224,6 +233,18 @@ namespace Wyrdbound
             if (padUsed) { UsingPad = true; MouseAim = false; }
             else if (Input.anyKey) UsingPad = false;
 #endif
+            if (Pad != null)
+            {
+                if (Pad.Move.sqrMagnitude > 0.01f) r.move = Pad.Move;
+                r.attack |= Pad.Attack;
+                r.special |= Pad.Special;
+                r.cast |= Pad.Cast;
+                r.dash |= Pad.Dash;
+                r.call |= Pad.Call;
+                r.confirm |= Pad.Confirm;
+                r.cancel |= Pad.Cancel;
+                MouseAim = false;
+            }
         }
     }
 }

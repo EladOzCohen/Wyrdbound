@@ -35,6 +35,9 @@ namespace Wyrdbound
     {
         static readonly Dictionary<string, EnemyDef> defs = new Dictionary<string, EnemyDef>();
 
+        /// <summary>Global balance knobs (tuned from the automated play-test).</summary>
+        public const float HpScale = 1.6f, BossHpScale = 2.2f;
+
         public static EnemyDef Get(string id) => defs.TryGetValue(id, out var d) ? d : null;
         public static IEnumerable<EnemyDef> All => defs.Values;
 

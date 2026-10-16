@@ -85,8 +85,21 @@ namespace Wyrdbound
         public static SaveData Data = new SaveData();
         public static Settings Prefs = new Settings();
 
-        static string SavePath => Path.Combine(Application.persistentDataPath, "wyrdbound_save.json");
-        static string PrefsPath => Path.Combine(Application.persistentDataPath, "wyrdbound_settings.json");
+        /// <summary>Appended to file names (the automated play-test uses its own save).</summary>
+        public static string Suffix = "";
+
+        static string SavePath => Path.Combine(Application.persistentDataPath, "wyrdbound_save" + Suffix + ".json");
+        static string PrefsPath => Path.Combine(Application.persistentDataPath, "wyrdbound_settings" + Suffix + ".json");
+
+        public static void DeleteFiles()
+        {
+            try
+            {
+                if (File.Exists(SavePath)) File.Delete(SavePath);
+                if (File.Exists(PrefsPath)) File.Delete(PrefsPath);
+            }
+            catch (Exception e) { Debug.LogWarning(e.Message); }
+        }
 
         public static bool HasSave => File.Exists(SavePath);
 

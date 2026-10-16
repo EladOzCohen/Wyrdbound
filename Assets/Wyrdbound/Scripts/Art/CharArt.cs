@@ -521,6 +521,33 @@ namespace Wyrdbound
                         break;
                     }
 
+                case "ganglot":
+                    p = new Pix(96, 120);
+                    Humanoid(p, new Hum
+                    {
+                        hunch = 0.7f, robe = true, hood = true, cloth = U.Hex("4a4238"), trim = U.Hex("8a7a5a"), skin = U.Hex("b8ac98"),
+                        eye = U.Hex("d8c8a0"), width = 0.9f, torso = 0.9f, staff = true, runeColor = U.Hex("d8c8a0")
+                    });
+                    break;
+                case "hodr":
+                    p = new Pix(104, 136);
+                    Humanoid(p, new Hum
+                    {
+                        scale = 1.05f, capeOn = true, cape = U.Hex("3a3f48"), cloth = U.Hex("5a606e"), trim = U.Hex("a8b0bc"), skin = U.Hex("d8ccbc"),
+                        hair = U.Hex("8a8478"), beard = true, eyesGlow = false, bow = true
+                    });
+                    p.Rect(40, 72, 67, 79, U.Hex("2a2d36"), 2);
+                    p.Capsule(40, 75, 33, 70, 1.4f, U.Hex("2a2d36"));
+                    break;
+                case "hermod":
+                    p = new Pix(112, 140);
+                    Humanoid(p, new Hum
+                    {
+                        scale = 1.08f, helmet = true, pads = true, capeOn = true, cape = U.Hex("2e4a6a"), cloth = U.Hex("4a5468"), trim = Pal.Gold,
+                        metal = U.Hex("b8c0cc"), skin = U.Hex("e2c8ac"), beard = true, hair = U.Hex("a86a3a"), eyesGlow = false, staff = true, runeColor = Pal.Gold
+                    });
+                    break;
+
                 // ----- gods (portraits for boon conversations)
                 case "thor":
                     p = new Pix(128, 160);
