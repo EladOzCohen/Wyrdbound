@@ -5,7 +5,21 @@ namespace Wyrdbound
     /// <summary>Shared materials and SpriteRenderer construction.</summary>
     public static class Mats
     {
-        static Material sprite, additive;
+        static Material sprite, additive, unlit;
+
+        /// <summary>Sprite material that ignores the light buffer (distant backdrops, UI-like world art).</summary>
+        public static Material Unlit
+        {
+            get
+            {
+                if (unlit == null)
+                {
+                    unlit = new Material(Sprite) { name = "WyrdUnlit" };
+                    unlit.SetFloat("_Lit", 0f);
+                }
+                return unlit;
+            }
+        }
 
         public static Material Sprite
         {

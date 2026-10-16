@@ -61,6 +61,8 @@ namespace Wyrdbound
             var camGo = new GameObject("Camera");
             camGo.transform.SetParent(transform, false);
             Cam = camGo.AddComponent<CameraRig>();
+            camGo.AddComponent<LightingRig>();
+            camGo.AddComponent<PostFx>();
 
             Audio = new AudioManager(gameObject);
 

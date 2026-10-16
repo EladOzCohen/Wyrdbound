@@ -77,6 +77,7 @@ namespace Wyrdbound
         {
             if (Open) return;
             Open = true;
+            Lights.Attach(transform, new Vector2(0f, 1.6f), 3.6f, col, 0.75f);
             Vfx.Flash(spot + new Vector2(0f, 1.6f), 1.6f, col, 0.4f);
             Vfx.Motes(spot + new Vector2(0f, 1.2f), 12, col, 1f, 1.5f, 1f);
         }

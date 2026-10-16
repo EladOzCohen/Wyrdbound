@@ -46,6 +46,7 @@ namespace Wyrdbound
                 z.glyph = Mats.SR(go.transform, "glyph", Runes.Sprite(rune), Sort.FloorFx + 7, color.A(0.6f), true);
                 z.glyph.transform.localScale = Vector3.one * radius * 0.9f;
             }
+            Lights.Attach(go.transform, Vector2.zero, radius * 1.5f, color, 0.4f);
             z.Apply(0f);
             return z;
         }

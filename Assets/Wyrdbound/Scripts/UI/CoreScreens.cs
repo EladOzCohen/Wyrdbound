@@ -204,6 +204,8 @@ namespace Wyrdbound
             AddSlider("Screen Shake", () => p.shake, v => p.shake = v);
             AddToggle("Damage Numbers", () => p.numbers, v => p.numbers = v);
             AddToggle("Hurt Flashes", () => p.flashes, v => p.flashes = v);
+            AddToggle("Dynamic Lighting", () => p.lighting, v => p.lighting = v);
+            AddToggle("Bloom & Colour Grading", () => p.bloom, v => p.bloom = v);
             AddToggle("Aim with Mouse", () => p.mouseAim, v => { p.mouseAim = v; Game.I.Input.MouseAim = v; });
             AddToggle("Fullscreen", () => p.fullscreen, v => { p.fullscreen = v; Game.I.ApplySettings(); });
             AddToggle("Odin's Grace (take far less damage; grows with each death)", () => p.grace, v =>

@@ -28,6 +28,24 @@ namespace Wyrdbound
         Vector2 dashDir, dashFrom, moveVel, lungeVel;
         bool requireRelease;
         SpriteRenderer soulLight;
+        WeaponTrail trail;
+        Color trailColor = new Color(0.82f, 1f, 0.92f);
+        float castAnim;
+        float noGodT = -9f;
+
+        float WeaponReach
+        {
+            get
+            {
+                switch (Weapon != null ? Weapon.Id : "axe")
+                {
+                    case "spear": return 1.7f;
+                    case "bow": return 0.5f;
+                    case "seax": return 0.75f;
+                }
+                return 1.15f;
+            }
+        }
 
         public PlayerStats S => RunState.Current != null ? RunState.Current.Stats : hubStats;
         public bool Dashing => dashT > 0f;
@@ -52,14 +70,15 @@ namespace Wyrdbound
             Radius = 0.36f;
             MaxHP = HP = S.MaxHP;
             VisualHeight = CharArt.Height("narfi");
-            BuildVisual(CharArt.Get("narfi"), 1.0f, false);
-            soulLight = Mats.SR(transform, "soul", SpriteLib.Light, Sort.FloorFx, Pal.Narfi.A(0.18f), true);
-            soulLight.transform.localScale = new Vector3(5f, 5f, 1f);
+            BuildRig("narfi", 1.0f, false);
+            soulLight = Lights.Attach(transform, new Vector2(0f, 0.6f), 6.5f, Color.Lerp(Color.white, Pal.Narfi, 0.35f), 0.62f);
+
             WeaponPivot = new GameObject("weaponPivot").transform;
             WeaponPivot.SetParent(transform, false);
             WeaponPivot.localPosition = new Vector3(0f, 0.55f, 0f);
             WeaponSR = Mats.SR(WeaponPivot, "weapon", null, 0);
             WeaponSR.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
+            trail = WeaponTrail.Create(transform.parent);
             OnStatsChanged();
             DashCharges = S.DashCharges;
             CastAmmo = S.CastMax;
@@ -100,7 +119,7 @@ namespace Wyrdbound
             dashT = 0f;
             Weapon?.Cancel();
             gameObject.SetActive(true);
-            if (Body != null) Body.enabled = true;
+            SetVisible(true);
         }
 
         public void Teleport(Vector2 p)
@@ -265,6 +284,7 @@ namespace Wyrdbound
             }
             CastAmmo--;
             castLock = 0.2f;
+            castAnim = 0.32f;
             var run = RunState.Current;
             God g = run != null ? run.Boons.CastGod : God.None;
             Color col = g == God.None ? Pal.Narfi : Pal.God(g);
@@ -313,7 +333,7 @@ namespace Wyrdbound
             if (run == null) return;
             if (!run.Boons.HasCall)
             {
-                if (Fury >= 100f) Vfx.Text(Pos + new Vector2(0f, VisualHeight + 0.3f), "No god answers...", Pal.Dim, 0.7f);
+                if (Fury >= 100f && Time.time - noGodT > 3f) { noGodT = Time.time; Vfx.Text(Pos + new Vector2(0f, VisualHeight + 0.3f), "No god answers...", Pal.Dim, 0.7f); }
                 return;
             }
             if (Fury < 100f)
@@ -334,6 +354,8 @@ namespace Wyrdbound
             TickStatus(dt);
             iframes = Mathf.Max(0f, iframes - dt);
             castLock -= dt;
+            castAnim = Mathf.Max(0f, castAnim - dt);
+            if (RunState.Current != null) { var g = RunState.Current.Boons.SlotGod(BoonSlot.Attack); trailColor = g == God.None ? new Color(0.82f, 1f, 0.92f) : Pal.God(g); }
             SinceDash += dt;
             dashBuffer -= dt;
 
@@ -361,8 +383,8 @@ namespace Wyrdbound
                 afterT -= dt;
                 if (afterT <= 0f)
                 {
-                    afterT = 0.025f;
-                    Vfx.Afterimage(Body, Pal.Narfi.A(0.5f), 0.22f);
+                    afterT = 0.04f;
+                    Afterimage(Pal.Narfi.A(0.45f), 0.22f);
                 }
                 if (dashT <= 0f)
                 {
@@ -411,22 +433,55 @@ namespace Wyrdbound
             UpdateVisual(dt, vel);
             UpdateWeaponVisual();
             float flick = iframes > 0f && !Dashing ? (Mathf.Sin(Time.time * 40f) > 0f ? 0.45f : 1f) : 1f;
-            Body.color = new Color(1f, 1f, 1f, flick);
-            soulLight.color = Pal.Narfi.A(0.15f + 0.04f * Mathf.Sin(Time.time * 2f));
+            SetAlpha(flick);
+            soulLight.color = Color.Lerp(Color.white, Pal.Narfi, 0.35f).A(0.6f + 0.05f * Mathf.Sin(Time.time * 2f));
         }
 
         void UpdateWeaponVisual()
         {
             if (WeaponSR == null) return;
             float side = Facing.x < -0.05f ? -1f : 1f;
-            float ang = WeaponSwinging ? WeaponAngle : (side > 0 ? -55f : -125f);
+            float ang;
+            if (WeaponSwinging) ang = WeaponAngle;
+            else
+            {
+                var elbow = Rig != null ? Rig.Bone("foreN") : null;
+                if (elbow != null)
+                {
+                    var dir = Rig.HandWorld - new Vector2(elbow.position.x, elbow.position.y);
+                    ang = dir.Ang() + side * 28f;
+                }
+                else ang = side > 0 ? -55f : -125f;
+            }
             ang = Mathf.Repeat(ang + 180f, 360f) - 180f;
-            WeaponPivot.localPosition = new Vector3(side * 0.18f, 0.55f + Visual.localPosition.y, 0f);
-            WeaponPivot.localRotation = Quaternion.Euler(0f, 0f, ang);
+            if (Rig != null)
+            {
+                var hand = Rig.HandWorld;
+                WeaponPivot.position = new Vector3(hand.x, hand.y, 0f);
+            }
+            else WeaponPivot.localPosition = new Vector3(side * 0.18f, 0.55f + Visual.localPosition.y, 0f);
+            WeaponPivot.rotation = Quaternion.Euler(0f, 0f, ang);
             WeaponSR.flipY = ang > 90f || ang < -90f;
             WeaponSR.transform.localPosition = new Vector3(WeaponExtend, 0f, 0f);
-            WeaponSR.sortingOrder = Body.sortingOrder + (Mathf.Sin(ang * Mathf.Deg2Rad) > 0.25f ? -1 : 1);
+            bool behind = Mathf.Sin(ang * Mathf.Deg2Rad) > 0.35f;
+            WeaponSR.sortingOrder = Body.sortingOrder + (behind ? -5 : 3);
             WeaponSR.enabled = !Dead && !WeaponHidden;
+            WeaponSR.color = new Color(1f, 1f, 1f, Body.color.a);
+            trail?.Feed(WeaponSwinging && !WeaponHidden, WeaponPivot.position, WeaponPivot.position + WeaponPivot.right * WeaponReach, trailColor);
+        }
+
+        protected override float RigMaxSpeed => S.MoveSpeed;
+
+        protected override void FillRig(ref RigInput r)
+        {
+            if (Dashing) { r.Action = RigAction.Dash; return; }
+            if (castAnim > 0f) { r.Action = RigAction.Throw; r.ActionT = 1f - castAnim / 0.32f; }
+            if (WeaponSwinging)
+            {
+                float side = Visual.localScale.x < 0f ? -1f : 1f;
+                r.ArmOverride = true;
+                r.AimLocal = side > 0 ? WeaponAngle : 180f - WeaponAngle;
+            }
         }
 
         protected override void OnSlam(float force) { }

@@ -30,7 +30,7 @@ namespace Wyrdbound
         protected float repeatT;
         protected readonly HashSet<Entity> actHits = new HashSet<Entity>();
         protected Vector2 leapFrom;
-        float actDist, thinkT, strafeT, strafeSign = 1f, teleportCd = 2f, spawnT, deadT, dustT;
+        float actDist, thinkT, strafeT, strafeSign = 1f, teleportCd = 2f, spawnT, spawnTotal = 1f, dustT;
         Vector2 vel;
         bool exploded;
         SpriteRenderer aura;
@@ -72,10 +72,12 @@ namespace Wyrdbound
             DmgMult = dmgMult * (Elite ? 1.15f : 1f);
             baseScale = def.Scale * (Elite ? 1.12f : 1f);
             VisualHeight = CharArt.Height(def.Art);
-            BuildVisual(CharArt.Get(def.Art), Mathf.Max(0.9f, def.Radius * 2.6f), !def.Boss);
+            BuildRig(def.Art, Mathf.Max(0.9f, def.Radius * 2.6f), !def.Boss);
+            Lights.Attach(transform, new Vector2(0f, VisualHeight * 0.5f), Mathf.Max(1.5f, def.Radius * 3.2f), def.Blood, def.Boss ? 0.55f : 0.3f);
             if (Elite)
             {
                 aura = Mats.SR(transform, "aura", SpriteLib.Light, Sort.FloorFx + 2, Pal.Gold.A(0.3f), true);
+                Lights.Attach(transform, new Vector2(0f, 0.6f), 2.2f, Pal.Gold, 0.5f);
                 aura.transform.localScale = new Vector3(3f, 3f, 1f);
             }
             cds = new float[def.Attacks.Length];
@@ -84,9 +86,10 @@ namespace Wyrdbound
             if (Player.I != null) Facing = (Player.I.Pos - pos).Norm(Vector2.right);
             Spawning = spawnDelay > 0f;
             spawnT = spawnDelay;
+            spawnTotal = Mathf.Max(0.01f, spawnDelay);
             if (Spawning)
             {
-                Body.color = new Color(1, 1, 1, 0);
+                SetAlpha(0f);
                 Vfx.TeleCircle(pos, Mathf.Max(0.8f, def.Radius * 1.8f), spawnDelay, World.Biome.Accent);
                 Game.I.Audio.Play("spawn", 0.35f);
             }
@@ -107,22 +110,22 @@ namespace Wyrdbound
             float dt = Time.deltaTime;
             if (Dead)
             {
-                deadT += dt;
-                float k = Mathf.Clamp01(deadT / 0.45f);
-                Body.color = new Color(1, 1, 1, 1f - k);
+                UpdateVisual(dt, Vector2.zero);
+                float k = Mathf.Clamp01((deadT - 0.35f) / 0.35f);
+                SetAlpha(1f - k);
                 if (ShadowR != null) ShadowR.color = new Color(1, 1, 1, 1f - k);
-                Visual.localScale = new Vector3(Visual.localScale.x * (1f + dt * 0.6f), Visual.localScale.y * (1f - dt * 1.5f), 1f);
-                if (deadT > 0.5f) Destroy(gameObject);
+                if (k > 0f && UnityEngine.Random.value < 0.5f) Vfx.Motes(Center, 1, Def.Blood, 0.5f, 1.5f, 0.6f);
+                if (deadT > 0.75f) Destroy(gameObject);
                 return;
             }
             if (Spawning)
             {
                 spawnT -= dt;
-                Body.color = new Color(1, 1, 1, 1f - Mathf.Clamp01(spawnT / 0.35f));
+                SetAlpha(Mathf.Clamp01((1f - spawnT / spawnTotal) * 2.5f));
                 if (spawnT <= 0f)
                 {
                     Spawning = false;
-                    Body.color = Color.white;
+                    SetAlpha(1f);
                     Vfx.Dust(Pos, 6, World.Biome.Fog, 0.8f);
                     Vfx.Flash(Center, 0.8f, World.Biome.Accent, 0.2f);
                 }
@@ -192,12 +195,12 @@ namespace Wyrdbound
 
             if (burrowed)
             {
-                Body.enabled = false;
+                SetVisible(false);
                 if (ShadowR != null) ShadowR.enabled = false;
                 dustT -= dt;
                 if (dustT <= 0f) { dustT = 0.08f; Vfx.Dust(Pos, 1, U.Hex("6a5a3a"), 0.6f); }
             }
-            else if (!Body.enabled) Body.enabled = true;
+            else if (!Visible) SetVisible(true);
             if (aura != null) aura.color = Pal.Gold.A(Armor > 0f ? 0.25f + 0.08f * Mathf.Sin(Time.time * 4f) : 0f);
         }
 
@@ -280,7 +283,7 @@ namespace Wyrdbound
             if (burrowed)
             {
                 burrowed = false;
-                Body.enabled = true;
+                SetVisible(true);
                 Vfx.Dust(Pos, 10, U.Hex("6a5a3a"), 1f);
                 Game.I.Audio.Play("slam", 0.4f, 1.4f);
             }
@@ -518,7 +521,7 @@ namespace Wyrdbound
                             actHits.Add(e);
                             Combat.Deal(e, EHit(cur));
                         }
-                        if (cur.Kind == AtkKind.Charge && UnityEngine.Random.value < 0.5f) Vfx.Afterimage(Body, Def.Blood.A(0.4f), 0.2f);
+                        if (cur.Kind == AtkKind.Charge && UnityEngine.Random.value < 0.5f) Afterimage(Def.Blood.A(0.4f), 0.2f);
                         if (actDist >= cur.Dist || stT >= cur.Active * 1.3f) EndAct();
                         return aimDir * speed;
                     }
@@ -651,5 +654,55 @@ namespace Wyrdbound
         }
 
         protected virtual void OnDied(HitInfo hit) { }
+
+        protected override float RigMaxSpeed => Mathf.Max(1.5f, Def != null ? Def.Speed : 3f);
+
+        /// <summary>Translate the AI's attack state into an animation pose.</summary>
+        protected override void FillRig(ref RigInput r)
+        {
+            r.Underground = burrowed;
+            if (Spawning) r.Spawn = 1f - Mathf.Clamp01(spawnT / spawnTotal);
+            if (Dead || cur == null || state == S.Move) return;
+            var kind = cur.Kind;
+            float wind = stT / Mathf.Max(0.01f, Windup);
+            switch (state)
+            {
+                case S.Windup:
+                    r.ActionT = wind;
+                    switch (kind)
+                    {
+                        case AtkKind.Slam:
+                        case AtkKind.Explode: r.Action = RigAction.SlamWindup; break;
+                        case AtkKind.Shoot: r.Action = RigAction.Shoot; break;
+                        case AtkKind.Ring:
+                        case AtkKind.Summon:
+                        case AtkKind.Custom:
+                        case AtkKind.Lob: r.Action = RigAction.Cast; break;
+                        default: r.Action = RigAction.Windup; break;
+                    }
+                    break;
+                case S.Act:
+                    r.ActionT = Mathf.Clamp01(stT / Mathf.Max(0.05f, cur.Active));
+                    switch (kind)
+                    {
+                        case AtkKind.Swipe: r.Action = RigAction.Strike; break;
+                        case AtkKind.Lunge:
+                        case AtkKind.Charge:
+                        case AtkKind.Leap: r.Action = RigAction.Lunge; break;
+                        case AtkKind.Slam: r.Action = RigAction.SlamStrike; break;
+                        case AtkKind.Shoot: r.Action = RigAction.Shoot; r.ActionT = 1f; break;
+                        default: r.Action = RigAction.Cast; break;
+                    }
+                    break;
+                case S.Recover:
+                    float k = stT / Mathf.Max(0.05f, cur.Recover);
+                    if (k < 0.45f)
+                    {
+                        if (kind == AtkKind.Swipe) { r.Action = RigAction.Strike; r.ActionT = 1f; }
+                        else if (kind == AtkKind.Slam) { r.Action = RigAction.SlamStrike; r.ActionT = 1f; }
+                    }
+                    break;
+            }
+        }
     }
 }

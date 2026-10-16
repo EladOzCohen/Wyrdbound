@@ -104,7 +104,7 @@ namespace Wyrdbound
         }
 
         public void Spawn(Sprite s, Vector2 pos, Vector2 vel, float life, float s0, float s1, Color c0, Color c1, bool add,
-            float rot = 0f, float rotSpd = 0f, float drag = 0f, int order = Sort.Fx, float aspect = 1f, float grav = 0f, bool flip = false, bool unscaled = false)
+            float rot = 0f, float rotSpd = 0f, float drag = 0f, int order = Sort.Fx, float aspect = 1f, float grav = 0f, bool flip = false, bool unscaled = false, int layer = 0)
         {
             if (s == null || life <= 0f) return;
             int idx = -1;
@@ -123,6 +123,7 @@ namespace Wyrdbound
             p.sr.sharedMaterial = add ? Mats.Additive : Mats.Sprite;
             p.sr.sortingOrder = order;
             p.sr.flipX = flip;
+            p.sr.gameObject.layer = layer;
             p.sr.enabled = true;
             p.sr.color = c0;
             p.sr.transform.position = pos;
@@ -323,7 +324,15 @@ namespace Wyrdbound
         public static void Light(Vector2 pos, float radius, Color c, float life)
         {
             if (S == null) return;
-            S.Spawn(SpriteLib.Light, pos, Vector2.zero, life, radius * 2f, radius * 2f, c, c.A(0f), true, 0f, 0f, 0f, Sort.FloorFx);
+            var lc = c.A(Mathf.Clamp(c.a * 2.2f, 0.3f, 2f));
+            S.Spawn(SpriteLib.Light, pos, Vector2.zero, life, radius * 2.4f, radius * 2.4f, lc, lc.A(0f), true, 0f, 0f, 0f, 0, 1f, 0f, false, false, Lights.Layer);
+        }
+
+        /// <summary>Visible glow plus real light, for impacts and explosions.</summary>
+        public static void Burstlight(Vector2 pos, float radius, Color c, float life)
+        {
+            Flash(pos, radius * 0.6f, c, life);
+            Light(pos, radius, c, life * 1.5f);
         }
 
         public static void Line(Vector2 a, Vector2 b, float width, Color c, float life) => Seg(a, b, width, c, life);

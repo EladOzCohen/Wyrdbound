@@ -25,6 +25,18 @@
   - **Next session: play-test by hand and keep tuning.**
 - Bot screenshots were captured one frame late. Fixed with `Snap()`.
 
+## Graphics upgrade (2026-10-16, second session)
+- **Skeletal cut-out animation.** Characters are built from separate jointed parts and animated procedurally.
+  - `Art/CharSpecs.cs` is the one table of every character's look.
+  - `Art/RigArt.cs` paints each part at 2× resolution, with a rim light and core shadow.
+  - `Fx/Rig.cs` builds the bone hierarchy and animates it. Rig kinds: Humanoid, Quad, Bird, Serpent, Ghost, Blob, Bell, and Static (whole sprite).
+  - Animations cover: gait cycles, breathing, attack windup/strike/recovery, slams, casting, shooting, lunges and dashes, hurt recoil, death collapse, emerging from the ground, and spring physics for capes, hair, tails and tatters.
+  - `Entity.FillRig()` maps game state to poses: Player handles the weapon arm, dash and throw; Enemy handles its AI states.
+- **2D lighting.** `Fx/Lighting.cs` uses light sprites on layer 30. A light camera renders them into a 1/3-resolution HDR buffer, and `Wyrd/Sprite` multiplies that buffer in, with each realm's `Biome.Ambient` as the base. `Lights.Attach/At/ToLayer`, plus `Vfx.Light`, now emit real light.
+- **Post-processing.** `Fx/PostFx.cs` + `Resources/Shaders/WyrdPost.shader` add bloom (threshold 1.25), a colour grade, vignette and an ACES tonemap. Both lighting and bloom can be toggled in Settings.
+- Weapon trails (`Fx/WeaponTrail.cs`), a parallax void backdrop (`World/Backdrop.cs`), a closer camera (ortho size 7.2), and 4× portraits.
+- Play-test 3 ran a full escape with **0 errors**. Bot options: `-wyrdrooms N` for a quick run; close-up screenshots are captured automatically.
+
 ## Architecture (quick reference)
 - **Bootstrap.** `Boot` creates `Game` in any scene. `Game` owns:
   - Input, Audio, Camera, UI, `RunDirector`, `Hub` and the persistent `Player`

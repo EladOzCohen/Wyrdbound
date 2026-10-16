@@ -24,6 +24,8 @@ namespace Wyrdbound
 
         public Transform Visual;
         public SpriteRenderer Body, ShadowR;
+        public Rig Rig;
+        protected float hurtT, deadT;
         protected float flash;
         protected Color flashColor = Color.white;
         protected float squash;
@@ -49,11 +51,50 @@ namespace Wyrdbound
         protected virtual void OnEnable() { All.Add(this); }
         protected virtual void OnDisable() { All.Remove(this); }
 
+        /// <summary>Build an animated cut-out rig for this character (falls back to a still sprite).</summary>
+        protected void BuildRig(string artId, float shadowSize, bool healthBar)
+        {
+            Visual = new GameObject("visual").transform;
+            Visual.SetParent(transform, false);
+            Rig = Rig.Build(Visual, artId);
+            Body = Rig.Main;
+            BuildCommon(shadowSize, healthBar);
+        }
+
         protected void BuildVisual(Sprite body, float shadowSize, bool healthBar)
         {
             Visual = new GameObject("visual").transform;
             Visual.SetParent(transform, false);
             Body = Mats.SR(Visual, "body", body, 0);
+            BuildCommon(shadowSize, healthBar);
+        }
+
+        public void SetAlpha(float a)
+        {
+            if (Rig != null) Rig.SetColor(new Color(1f, 1f, 1f, a));
+            else if (Body != null) Body.color = new Color(1f, 1f, 1f, a);
+        }
+
+        public void SetVisible(bool v)
+        {
+            if (Rig != null) Rig.SetVisible(v);
+            else if (Body != null) Body.enabled = v;
+        }
+
+        public bool Visible => Body != null && Body.enabled;
+
+        public void Afterimage(Color c, float life)
+        {
+            if (Rig != null) Rig.Afterimage(c, life);
+            else Vfx.Afterimage(Body, c, life);
+        }
+
+        /// <summary>Override to tell the rig what this character is doing.</summary>
+        protected virtual void FillRig(ref RigInput r) { }
+        protected virtual float RigMaxSpeed => 3f;
+
+        void BuildCommon(float shadowSize, bool healthBar)
+        {
             ShadowR = Mats.SR(transform, "shadow", SpriteLib.Shadow, Sort.Shadow);
             ShadowR.transform.localScale = new Vector3(shadowSize, shadowSize, 1f);
             mpb = new MaterialPropertyBlock();
@@ -102,7 +143,8 @@ namespace Wyrdbound
             HP -= toHp;
             LastHitTime = Time.time;
             Flash(1f, armorHit ? Pal.Armor : Color.white);
-            squash = 0.2f;
+            squash = Rig != null ? 0.1f : 0.2f;
+            hurtT = 0.28f;
             barShow = 3f;
             if (hit.Knock > 0f && !KnockImmune) Knock += hit.Dir.Norm(Vector2.zero) * (hit.Knock / Mathf.Max(0.5f, Mass));
             if (!hit.Silent) Vfx.Damage(Pos + new Vector2(0f, VisualHeight + 0.2f), dmg, hit.Crit, Team == Team.Player);
@@ -195,11 +237,14 @@ namespace Wyrdbound
         {
             if (Visual == null) return;
             int order = Sort.Y(Pos.y);
-            Body.sortingOrder = order;
-            if (ShadowR != null) ShadowR.enabled = lift < 3f;
+            if (Rig != null) Rig.SetOrder(order);
+            else Body.sortingOrder = order;
+            if (ShadowR != null) ShadowR.enabled = lift < 3f && Visible;
 
             flash = Mathf.Max(0f, flash - dt * 7f);
-            Body.GetPropertyBlock(mpb);
+            hurtT = Mathf.Max(0f, hurtT - dt);
+            if (Dead) deadT += dt;
+            if (Rig != null) mpb.Clear(); else Body.GetPropertyBlock(mpb);
             float fl = flash;
             Color fc = flashColor;
             if (St.Frozen > 0f) { fl = Mathf.Max(fl, 0.55f); fc = Pal.Frost; }
@@ -207,18 +252,33 @@ namespace Wyrdbound
             else if (St.Chill > 0) { fl = Mathf.Max(fl, St.Chill * 0.035f); fc = Pal.Frost; }
             mpb.SetFloat("_Flash", fl);
             mpb.SetColor("_FlashColor", fc);
-            Body.SetPropertyBlock(mpb);
+            if (Rig != null) Rig.SetBlock(mpb); else Body.SetPropertyBlock(mpb);
 
             squash = U.Damp(squash, 0f, 10f, dt);
             float speed = vel.magnitude;
-            if (speed > 0.3f) bobT += dt * (6f + speed);
-            else bobT = U.Damp(bobT, Mathf.Round(bobT / Mathf.PI) * Mathf.PI, 10f, dt);
-            float bob = Mathf.Abs(Mathf.Sin(bobT)) * 0.07f * Mathf.Clamp01(speed / 3f);
             float side = Facing.x < -0.05f ? -1f : 1f;
             float sx = baseScale * (1f + squash), sy = baseScale * (1f - squash * 0.8f);
             Visual.localScale = new Vector3(side * sx, sy, 1f);
-            Visual.localPosition = new Vector3(0f, bob + lift, 0f);
-            Visual.localRotation = Quaternion.Euler(0f, 0f, Mathf.Clamp(-vel.x * 1.3f, -8f, 8f));
+            if (Rig != null)
+            {
+                Visual.localPosition = new Vector3(0f, lift, 0f);
+                Visual.localRotation = Quaternion.identity;
+                var ri = new RigInput
+                {
+                    Speed = St.Frozen > 0f ? 0f : speed, MaxSpeed = RigMaxSpeed, Hurt = hurtT / 0.28f,
+                    Dead = Dead, DeadT = deadT, Spawn = 1f
+                };
+                FillRig(ref ri);
+                Rig.Animate(ri, St.Frozen > 0f ? 0f : dt);
+            }
+            else
+            {
+                if (speed > 0.3f) bobT += dt * (6f + speed);
+                else bobT = U.Damp(bobT, Mathf.Round(bobT / Mathf.PI) * Mathf.PI, 10f, dt);
+                float bob = Mathf.Abs(Mathf.Sin(bobT)) * 0.07f * Mathf.Clamp01(speed / 3f);
+                Visual.localPosition = new Vector3(0f, bob + lift, 0f);
+                Visual.localRotation = Quaternion.Euler(0f, 0f, Mathf.Clamp(-vel.x * 1.3f, -8f, 8f));
+            }
 
             if (barBg != null)
             {

@@ -254,7 +254,7 @@ namespace Wyrdbound
             }
             if (under)
             {
-                Body.enabled = false;
+                SetVisible(false);
                 if (ShadowR != null) ShadowR.enabled = false;
             }
         }
@@ -295,7 +295,7 @@ namespace Wyrdbound
             {
                 if (me == null) return;
                 under = false;
-                Body.enabled = true;
+                SetVisible(true);
                 Vfx.Dust(Pos, 16, U.Hex("5a6a3a"), 1.4f);
                 Game.I.Cam.Shake(0.3f);
             });

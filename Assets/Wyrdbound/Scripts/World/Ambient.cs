@@ -45,17 +45,19 @@ namespace Wyrdbound
         public void AddFlame(Vector2 p, Color c)
         {
             var core = Mats.SR(transform, "flame", SpriteLib.Glow, Sort.Y(p.y - 0.8f) + 1, c, true);
-            var light = Mats.SR(transform, "flamelight", SpriteLib.Light, Sort.FloorFx + 1, c.A(0.3f), true);
+            var light = Mats.SR(transform, "flamelight", SpriteLib.Light, Sort.FloorFx + 1, c.A(0.9f), true);
+            Lights.ToLayer(light);
             light.transform.position = p - new Vector2(0f, 0.8f);
             flames.Add(new Flame { Core = core, Light = light, Pos = p, Col = c, Phase = Random.value * 10f });
         }
 
         public void AddGlow(Vector2 p, Color c, float size)
         {
-            var sr = Mats.SR(transform, "runeglow", SpriteLib.Light, Sort.FloorFx + 1, c.A(0.12f), true);
+            var sr = Mats.SR(transform, "runeglow", SpriteLib.Light, Sort.FloorFx + 1, c.A(0.45f), true);
+            Lights.ToLayer(sr);
             sr.transform.position = p;
             sr.transform.localScale = new Vector3(size, size, 1f);
-            glows.Add(new GlowSpot { Sr = sr, Phase = Random.value * 10f, Alpha = 0.12f });
+            glows.Add(new GlowSpot { Sr = sr, Phase = Random.value * 10f, Alpha = 0.45f });
         }
 
         void Update()
@@ -75,7 +77,7 @@ namespace Wyrdbound
                 f.Core.transform.position = f.Pos;
                 f.Core.transform.localScale = new Vector3(0.9f * flick, 1.25f * flick, 1f);
                 f.Light.transform.localScale = new Vector3(6.5f * flick, 6.5f * flick, 1f);
-                f.Light.color = f.Col.A(0.28f * flick);
+                f.Light.color = f.Col.A(0.95f * flick);
                 if (Random.value < dt * 6f) Vfx.Spawn(SpriteLib.Mote, f.Pos + Random.insideUnitCircle * 0.2f, new Vector2(Random.Range(-0.3f, 0.3f), Random.Range(1.2f, 2.2f)), Random.Range(0.6f, 1.1f), 0.3f, 0.05f, f.Col, f.Col.A(0f), true);
             }
             foreach (var g in glows) g.Sr.color = biome.Accent.A(g.Alpha * (0.7f + 0.3f * Mathf.Sin(t * 1.4f + g.Phase)));

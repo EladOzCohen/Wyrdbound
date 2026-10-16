@@ -63,6 +63,7 @@ namespace Wyrdbound
             var line = convo.Lines[idx];
             full = Story.Expand(line.Text);
             shown = 0f;
+            body.text = "";
             bool narr = string.IsNullOrEmpty(line.Who);
             body.fontStyle = narr ? FontStyle.Italic : FontStyle.Normal;
             body.color = narr ? Pal.Dim.Lit(1.2f) : Pal.Text;

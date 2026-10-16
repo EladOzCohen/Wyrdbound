@@ -13,13 +13,26 @@ namespace Wyrdbound
         public readonly int W, H;
         public readonly Color[] P;
 
+        /// <summary>
+        /// Resolution scale. Shape calls take coordinates in "base" units (w x h); the canvas holds
+        /// w*S x h*S real pixels, so the same drawing code renders at any resolution.
+        /// Per-pixel calls (Blend, Light, Tint, P[]) always use real pixels.
+        /// </summary>
+        public readonly float S;
+
         public delegate float Sdf(float x, float y);
 
-        public Pix(int w, int h)
+        public Pix(int w, int h, float s = 1f)
         {
-            W = w; H = h;
-            P = new Color[w * h];
+            S = Mathf.Max(0.25f, s);
+            W = Mathf.CeilToInt(w * S);
+            H = Mathf.CeilToInt(h * S);
+            P = new Color[W * H];
         }
+
+        /// <summary>Base-unit width / height.</summary>
+        public float BW => W / S;
+        public float BH => H / S;
 
         public void Fill(Color c)
         {
@@ -74,12 +87,13 @@ namespace Wyrdbound
 
         public void Draw(float x0, float y0, float x1, float y1, Sdf sdf, Color c, float soft = 1f)
         {
-            int ix0 = Mathf.Max(0, Mathf.FloorToInt(x0) - 2), iy0 = Mathf.Max(0, Mathf.FloorToInt(y0) - 2);
-            int ix1 = Mathf.Min(W - 1, Mathf.CeilToInt(x1) + 2), iy1 = Mathf.Min(H - 1, Mathf.CeilToInt(y1) + 2);
+            int ix0 = Mathf.Max(0, Mathf.FloorToInt(x0 * S) - 2), iy0 = Mathf.Max(0, Mathf.FloorToInt(y0 * S) - 2);
+            int ix1 = Mathf.Min(W - 1, Mathf.CeilToInt(x1 * S) + 2), iy1 = Mathf.Min(H - 1, Mathf.CeilToInt(y1 * S) + 2);
+            float inv = 1f / S;
             for (int y = iy0; y <= iy1; y++)
                 for (int x = ix0; x <= ix1; x++)
                 {
-                    float d = sdf(x + 0.5f, y + 0.5f);
+                    float d = sdf((x + 0.5f) * inv, (y + 0.5f) * inv) * S;
                     float a = Mathf.Clamp01(0.5f - d / soft);
                     if (a > 0f) Blend(x, y, c, a);
                 }
@@ -160,22 +174,14 @@ namespace Wyrdbound
             return s * Mathf.Sqrt(d);
         }
 
-        public void Glow(float cx, float cy, float r, Color c, float power = 2f)
-        {
-            int ix0 = Mathf.Max(0, Mathf.FloorToInt(cx - r)), iy0 = Mathf.Max(0, Mathf.FloorToInt(cy - r));
-            int ix1 = Mathf.Min(W - 1, Mathf.CeilToInt(cx + r)), iy1 = Mathf.Min(H - 1, Mathf.CeilToInt(cy + r));
-            for (int y = iy0; y <= iy1; y++)
-                for (int x = ix0; x <= ix1; x++)
-                {
-                    float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
-                    float d = Mathf.Sqrt(dx * dx + dy * dy) / r;
-                    if (d < 1f) Blend(x, y, c, Mathf.Pow(1f - d, power));
-                }
-        }
+        public void Glow(float cx, float cy, float r, Color c, float power = 2f) => GlowImpl(cx, cy, r, c, power, false);
 
         /// <summary>Additive glow onto existing pixels only (rim light, glowing runes on armor).</summary>
-        public void LightGlow(float cx, float cy, float r, Color c, float power = 2f)
+        public void LightGlow(float cx, float cy, float r, Color c, float power = 2f) => GlowImpl(cx, cy, r, c, power, true);
+
+        void GlowImpl(float cx, float cy, float r, Color c, float power, bool onlyExisting)
         {
+            cx *= S; cy *= S; r *= S;
             int ix0 = Mathf.Max(0, Mathf.FloorToInt(cx - r)), iy0 = Mathf.Max(0, Mathf.FloorToInt(cy - r));
             int ix1 = Mathf.Min(W - 1, Mathf.CeilToInt(cx + r)), iy1 = Mathf.Min(H - 1, Mathf.CeilToInt(cy + r));
             for (int y = iy0; y <= iy1; y++)
@@ -183,7 +189,9 @@ namespace Wyrdbound
                 {
                     float dx = x + 0.5f - cx, dy = y + 0.5f - cy;
                     float d = Mathf.Sqrt(dx * dx + dy * dy) / r;
-                    if (d < 1f) Light(x, y, c, Mathf.Pow(1f - d, power));
+                    if (d >= 1f) continue;
+                    float a = Mathf.Pow(1f - d, power);
+                    if (onlyExisting) Light(x, y, c, a); else Blend(x, y, c, a);
                 }
         }
 
@@ -192,7 +200,7 @@ namespace Wyrdbound
         {
             for (int y = 0; y < H; y++)
             {
-                float t = Mathf.InverseLerp(y0, y1, y);
+                float t = Mathf.InverseLerp(y0, y1, y / S);
                 float k = Mathf.Lerp(darkBottom, lightTop, t);
                 for (int x = 0; x < W; x++)
                 {
@@ -204,8 +212,9 @@ namespace Wyrdbound
             }
         }
 
-        public void Outline(Color c, int r)
+        public void Outline(Color c, int baseRadius)
         {
+            int r = Mathf.Max(1, Mathf.RoundToInt(baseRadius * S));
             var src = (Color[])P.Clone();
             int r2 = r * r;
             for (int y = 0; y < H; y++)
@@ -238,6 +247,52 @@ namespace Wyrdbound
                 }
         }
 
+        /// <summary>
+        /// Edge lighting: painted pixels whose neighbour in direction (dx, dy) (base units) is empty get lit
+        /// (rim light) or darkened (core shadow). Gives cut-out parts a sense of volume.
+        /// </summary>
+        public void Edge(float dx, float dy, Color c, float amount, bool darken)
+        {
+            int ox = Mathf.RoundToInt(dx * S), oy = Mathf.RoundToInt(dy * S);
+            var src = (Color[])P.Clone();
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    int i = y * W + x;
+                    var s = src[i];
+                    if (s.a < 0.5f) continue;
+                    int xx = x + ox, yy = y + oy;
+                    float na = ((uint)xx < (uint)W && (uint)yy < (uint)H) ? src[yy * W + xx].a : 0f;
+                    if (na > 0.5f) continue;
+                    float k = amount * (1f - na);
+                    P[i] = darken
+                        ? new Color(s.r * (1f - k), s.g * (1f - k), s.b * (1f - k), s.a)
+                        : new Color(Mathf.Min(1f, s.r + c.r * k), Mathf.Min(1f, s.g + c.g * k), Mathf.Min(1f, s.b + c.b * k), s.a);
+                }
+        }
+
+        /// <summary>Standard volume pass: top-left rim light, bottom-right core shadow.</summary>
+        public void Volume(float rim = 0.35f, float core = 0.3f)
+        {
+            Edge(-1.6f, 1.6f, new Color(1f, 0.97f, 0.9f), rim, false);
+            Edge(2.2f, -2.2f, Color.black, core, true);
+        }
+
+        /// <summary>Speckle painted pixels with value noise (cloth weave, fur, stone grain).</summary>
+        public void Grain(float scale, float amount, int seed)
+        {
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    int i = y * W + x;
+                    var c = P[i];
+                    if (c.a <= 0f) continue;
+                    float n = Noise.Fbm(x / S * scale, y / S * scale, seed, 2) - 0.5f;
+                    float k = 1f + n * amount;
+                    P[i] = new Color(Mathf.Clamp01(c.r * k), Mathf.Clamp01(c.g * k), Mathf.Clamp01(c.b * k), c.a);
+                }
+        }
+
         /// <summary>Recolor every painted pixel right of x (used for Hel's half-living, half-dead body).</summary>
         public void SplitTint(float splitX, Color mul, float feather)
         {
@@ -247,7 +302,7 @@ namespace Wyrdbound
                     int i = y * W + x;
                     var c = P[i];
                     if (c.a <= 0f) continue;
-                    float t = Mathf.Clamp01((x - splitX) / Mathf.Max(0.5f, feather) + 0.5f);
+                    float t = Mathf.Clamp01((x / S - splitX) / Mathf.Max(0.5f, feather) + 0.5f);
                     if (t <= 0f) continue;
                     P[i] = new Color(Mathf.Lerp(c.r, c.r * mul.r, t), Mathf.Lerp(c.g, c.g * mul.g, t), Mathf.Lerp(c.b, c.b * mul.b, t), c.a);
                 }
@@ -298,7 +353,7 @@ namespace Wyrdbound
         public Sprite ToSprite(Vector2 pivot, float ppu, bool premultiply = true, Vector4 border = default)
         {
             var t = ToTex(premultiply);
-            return Sprite.Create(t, new Rect(0, 0, W, H), pivot, ppu, 0, SpriteMeshType.FullRect, border);
+            return Sprite.Create(t, new Rect(0, 0, W, H), pivot, ppu * S, 0, SpriteMeshType.FullRect, border * S);
         }
     }
 

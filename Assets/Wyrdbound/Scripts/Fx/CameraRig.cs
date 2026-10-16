@@ -9,7 +9,7 @@ namespace Wyrdbound
         public Vector2 Target;
         public Vector2 LookAhead;
         public Rect Bounds = new Rect(-20, -15, 40, 30);
-        public float BaseSize = 8.6f;
+        public float BaseSize = 7.2f;
 
         Vector2 pos;
         float trauma;

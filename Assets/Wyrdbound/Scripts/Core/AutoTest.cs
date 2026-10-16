@@ -25,6 +25,8 @@ namespace Wyrdbound
         readonly HashSet<string> realms = new HashSet<string>();
         readonly HashSet<string> errorSet = new HashSet<string>();
         int doorPick;
+        bool closeA, closeB;
+        int maxRooms = 40;
 
         void Awake()
         {
@@ -34,6 +36,8 @@ namespace Wyrdbound
             Directory.CreateDirectory(outDir);
             log = new StreamWriter(Path.Combine(outDir, "autotest_log.txt")) { AutoFlush = true };
             Application.logMessageReceived += OnLog;
+            int ri = Array.IndexOf(args, "-wyrdrooms");
+            if (ri >= 0 && ri + 1 < args.Length) int.TryParse(args[ri + 1], out maxRooms);
             Note("AutoTest started. Unity " + Application.unityVersion + ", screen " + Screen.width + "x" + Screen.height);
         }
 
@@ -67,6 +71,21 @@ namespace Wyrdbound
             Shot(name);
             yield return null;
             yield return null;
+        }
+
+        /// <summary>A zoomed-in burst of frames around Narfi, to inspect animation.</summary>
+        IEnumerator Closeup(string name, int frames, float gap)
+        {
+            var cam = Game.I.Cam;
+            float baseSize = cam.BaseSize;
+            cam.BaseSize = 3.2f;
+            for (int i = 0; i < frames; i++)
+            {
+                Shot(name + "_" + i);
+                float t = Time.realtimeSinceStartup + gap;
+                while (Time.realtimeSinceStartup < t) { Drive(); yield return null; }
+            }
+            cam.BaseSize = baseSize;
         }
 
         static IEnumerator Real(float s)
@@ -125,14 +144,18 @@ namespace Wyrdbound
             yield return Snap("talk_baldr");
             yield return Until(() => g.UI.Top == null || g.UI.Top is ChoiceScreen, 20f, "baldr talk");
             g.UI.CloseAll();
+            Player.I.Teleport(new Vector2(-11f, -8.4f));
+            yield return Closeup("close_hall", 4, 0.35f);
 
             g.TestSpeed = 1.7f;
             g.StartRun();
             yield return Until(() => g.Mode == GameMode.Run && !g.Transitioning, 20f, "run start");
             float runStart = Time.realtimeSinceStartup;
-            while (g.Mode == GameMode.Run && Time.realtimeSinceStartup - runStart < 1500f && rooms < 40)
+            while (g.Mode == GameMode.Run && Time.realtimeSinceStartup - runStart < 1500f && rooms < maxRooms)
             {
                 if (Player.I == null || Player.I.Dead) break;
+                if (!closeA && rooms == 1 && roomT > 2.2f && Combat.Nearest(Player.I.Pos, Team.Enemy, 99f) != null) { closeA = true; yield return Closeup("close_combat", 10, 0.1f); }
+                if (!closeB && Boss.Current != null && !Boss.Current.Spawning && roomT > 5f) { closeB = true; yield return Closeup("close_boss", 6, 0.15f); }
                 Drive();
                 yield return null;
             }
@@ -224,7 +247,7 @@ namespace Wyrdbound
                 pad.Special = Time.frameCount % 97 == 0;
                 pad.Cast = Time.frameCount % 173 == 0;
                 pad.Dash = Time.frameCount % 131 == 0;
-                pad.Call = p.Fury >= 100f && Time.frameCount % 20 == 0;
+                pad.Call = p.Fury >= 100f && run.Boons.HasCall && Time.frameCount % 20 == 0;
                 if (pad.Call) Note("call: " + run.Boons.SlotGod(BoonSlot.Call));
                 if ((p.Pos - lastPos).sqrMagnitude < 0.0004f && dist > 2.5f) stuckT += dt; else stuckT = 0f;
                 lastPos = p.Pos;

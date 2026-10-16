@@ -77,7 +77,7 @@ namespace Wyrdbound
     public class Settings
     {
         public float master = 0.8f, music = 0.6f, sfx = 0.9f, shake = 1f;
-        public bool numbers = true, fullscreen = true, mouseAim = true, grace = false, flashes = true;
+        public bool numbers = true, fullscreen = true, mouseAim = true, grace = false, flashes = true, lighting = true, bloom = true;
     }
 
     public static class SaveSystem

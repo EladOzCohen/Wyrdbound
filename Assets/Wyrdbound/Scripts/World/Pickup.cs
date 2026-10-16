@@ -25,7 +25,8 @@ namespace Wyrdbound
             p.Amount = amount;
             p.pos = pos;
             Color c = Tint(r, g);
-            p.light = Mats.SR(go.transform, "light", SpriteLib.Light, Sort.FloorFx + 4, c.A(0.3f), true);
+            p.light = Mats.SR(go.transform, "light", SpriteLib.Light, Sort.FloorFx + 4, c.A(0.9f), true);
+            Lights.ToLayer(p.light);
             p.light.transform.localScale = new Vector3(4f, 4f, 1f);
             p.glow = Mats.SR(go.transform, "glow", SpriteLib.Glow, Sort.Y(pos.y) - 1, c.A(0.5f), true);
             p.glow.transform.localScale = new Vector3(1.8f, 1.8f, 1f);

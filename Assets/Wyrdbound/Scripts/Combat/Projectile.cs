@@ -58,6 +58,7 @@ namespace Wyrdbound
             p.sr.transform.localScale = new Vector3(spec.Scale, spec.Scale, 1f);
             p.shadow = Mats.SR(go.transform, "shadow", SpriteLib.Shadow, Sort.Shadow, new Color(1, 1, 1, 0.5f));
             p.shadow.transform.localScale = new Vector3(spec.Scale * 0.5f, spec.Scale * 0.5f, 1f);
+            if (spec.Additive || spec.Trail.a > 0f) Lights.Attach(go.transform, new Vector2(0f, 0.55f), 1.7f * spec.Scale, spec.Additive ? spec.Color : spec.Trail, 0.65f);
             p.Orient();
             return p;
         }

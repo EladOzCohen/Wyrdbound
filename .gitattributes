@@ -1,0 +1,13 @@
+# Normalize line endings in the repo; Unity YAML and C# stay text.
+* text=auto
+*.cs text diff=csharp
+*.shader text
+*.asmdef text
+*.json text
+*.md text
+*.unity text merge=unityyamlmerge eol=lf
+*.asset text merge=unityyamlmerge eol=lf
+*.meta text eol=lf
+*.png binary
+*.ttf binary
+*.otf binary
