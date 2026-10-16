@@ -1,0 +1,18 @@
+{
+    "name": "Wyrdbound.Editor",
+    "rootNamespace": "Wyrdbound.EditorTools",
+    "references": [
+        "Wyrdbound"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
