@@ -1,0 +1,9 @@
+Models by Quaternius (https://quaternius.com), released under Creative Commons Zero (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+- Wolf.fbx            — Ultimate Animated Animal Pack (July 2021)
+- Ghost_Skull.fbx     — Ultimate Monsters (Flying)
+- Pigeon.fbx          — Ultimate Monsters (Flying)
+- GreenSpikyBlob.fbx  — Ultimate Monsters (Blob)
+
+Downloaded from the author's official Google Drive links on quaternius.com.

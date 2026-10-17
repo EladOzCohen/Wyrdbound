@@ -44,7 +44,8 @@ namespace Wyrdbound
         void Start()
         {
             Game.I.Input.Pad = pad;
-            StartCoroutine(Run());
+            bool gallery = Array.IndexOf(Environment.GetCommandLineArgs(), "-wyrdgallery") >= 0;
+            StartCoroutine(gallery ? Gallery() : Run());
         }
 
         void OnLog(string msg, string stack, LogType type)
@@ -110,6 +111,66 @@ namespace Wyrdbound
             pad.Move = Vector2.zero;
             pad.Attack = pad.Special = pad.Cast = pad.Dash = pad.Call = false;
             pad.Confirm = Game.I.UI.Top != null && Time.frameCount % 8 == 0;
+        }
+
+        /// <summary>-wyrdgallery: line up every 3D model, pose them (idle, run, attack, death) and photograph each group.</summary>
+        IEnumerator Gallery()
+        {
+            var g = Game.I;
+            yield return Real(2f);
+            g.UI.CloseAll();
+            g.ClearLevel();
+            g.Mode = GameMode.Hub;
+            g.Player.gameObject.SetActive(false);
+            var grid = RoomGen.Arena(new Rng(3), Biomes.Niflhel, 9, false);
+            LevelBuilder.Build(grid, Biomes.Niflhel, 5, false, false);
+            string[][] groups =
+            {
+                new[] { "narfi", "draugr", "draugr_archer", "thrall", "grave_jarl" },
+                new[] { "helhound", "garmr", "raven", "wraith", "wight", "bloat" },
+                new[] { "serpent", "larva", "bell", "nidhogg_head", "spitter", "oathbreaker" },
+                new[] { "hel", "baldr", "thor", "odin", "valkyrie", "hrimthurs" },
+            };
+            var cam = g.Cam;
+            cam.BaseSize = 5.8f;
+            for (int gi = 0; gi < groups.Length; gi++)
+            {
+                var root = new GameObject("gallery").transform;
+                root.SetParent(World.Root, false);
+                var ms = new List<Model3D>();
+                int n = groups[gi].Length;
+                for (int i = 0; i < n; i++)
+                {
+                    var go = new GameObject(groups[gi][i]);
+                    go.transform.SetParent(root, false);
+                    go.transform.position = new Vector3((i - (n - 1) * 0.5f) * 2.6f, (i % 2) * 0.6f, 0f);
+                    var m = Model3D.Build(go.transform, groups[gi][i]);
+                    if (m == null) Note("gallery: no model for " + groups[gi][i]); else ms.Add(m);
+                }
+                cam.Snap(new Vector2(0f, 0.8f));
+                string[] poses = { "idle", "run", "windup", "strike", "dead" };
+                foreach (var pose in poses)
+                {
+                    float t0 = Time.realtimeSinceStartup;
+                    while (Time.realtimeSinceStartup - t0 < (pose == "dead" ? 2f : 0.9f))
+                    {
+                        float k = Mathf.Clamp01((Time.realtimeSinceStartup - t0) / 0.8f);
+                        var ri = new RigInput { MaxSpeed = 4f, Spawn = 1f };
+                        if (pose == "run") ri.Speed = 4f;
+                        if (pose == "windup") { ri.Action = RigAction.Windup; ri.ActionT = k; }
+                        if (pose == "strike") { ri.Action = RigAction.Strike; ri.ActionT = k * 0.4f; }
+                        if (pose == "dead") { ri.Dead = true; ri.DeadT = k * 1.2f; }
+                        foreach (var m in ms) m.Animate(ri, pose == "run" ? new Vector2(1f, -0.4f) : new Vector2(0.2f, -1f), Time.deltaTime);
+                        yield return null;
+                    }
+                    yield return Snap("gallery" + gi + "_" + pose);
+                }
+                Destroy(root.gameObject);
+                yield return null;
+            }
+            Note("SUMMARY gallery errors=" + errors + " exceptions=" + exceptions + " shots=" + shots);
+            yield return Real(0.5f);
+            Application.Quit();
         }
 
         IEnumerator Run()

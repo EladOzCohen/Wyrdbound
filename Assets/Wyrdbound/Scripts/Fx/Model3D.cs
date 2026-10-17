@@ -19,7 +19,12 @@ namespace Wyrdbound
         public string Weapon, Offhand;          // extra item models for the right / left hand slot
         public string Melee = "1H_Melee_Attack_Chop", Heavy = "2H_Melee_Attack_Chop", Stab = "1H_Melee_Attack_Stab";
         public string Shoot = "1H_Ranged_Shoot", Aim = "1H_Ranged_Aiming", Idle = "Idle";
+        public bool ShowAll;             // every renderer is body (non-KayKit models)
         public bool Skeleton, Shamble;
+        public string Walk = "Walking_A", Run = "Running_A", Dodge = "Dodge_Forward", Cast = "Spellcasting", Death, Hit;
+        public float RawHeight = 2.5f;   // height of the source model in its own units
+        public float Hover;              // flyers float this high above the floor
+        public float RunRef = 4.2f;      // speed at which the run clip plays at 1x (for a 1.6-tall body)
 
         public bool IsSkeleton => Model.Contains("/Skeletons/");
     }
@@ -67,6 +72,37 @@ namespace Wyrdbound
             Add("odin", new ModelSpec { Model = Adv + "Mage", Height = 1.9f, Tint = U.Hex("5a6a8a"), TintAmt = 0.55f, Rim = Pal.God(God.Odin), Show = new[] { "2H_Staff" } });
             Add("njord", new ModelSpec { Model = Adv + "Barbarian", Height = 1.85f, Tint = U.Hex("3a7a9a"), TintAmt = 0.5f, Rim = Pal.God(God.Njord), Show = new[] { "1H_Axe" } });
 
+            // Quaternius (CC0) beasts and spirits
+            ModelSpec Wolf(float h, string tint, Color rim, Color eyes) => new ModelSpec
+            {
+                Model = "Quaternius/Wolf", ShowAll = true, RawHeight = 2.98f, Height = h, Tint = U.Hex(tint), TintAmt = 0.75f, Rim = rim, RimAmt = 0.8f, Eyes = eyes,
+                Idle = "AnimalArmature|Idle", Walk = "AnimalArmature|Walk", Run = "AnimalArmature|Gallop", RunRef = 5.5f,
+                Melee = "AnimalArmature|Attack", Heavy = "AnimalArmature|Attack", Stab = "AnimalArmature|Gallop_Jump", Cast = "AnimalArmature|Idle_2_HeadLow",
+                Dodge = "AnimalArmature|Gallop", Death = "AnimalArmature|Death", Hit = "AnimalArmature|Idle_HitReact_Left",
+                Shoot = "AnimalArmature|Attack", Aim = "AnimalArmature|Idle_2_HeadLow"
+            };
+            Add("helhound", Wolf(1.05f, "3a3046", hel, hel));
+            Add("garmr", Wolf(2.3f, "3a2420", Pal.Blood, U.Hex("ffb020")));
+            ModelSpec Flyer(string model, float h, float hover, string tint, float amt, Color rim) => new ModelSpec
+            {
+                Model = "Quaternius/" + model, ShowAll = true, RawHeight = 3.3f, Height = h, Hover = hover, Tint = U.Hex(tint), TintAmt = amt, Rim = rim, RimAmt = 1f,
+                Idle = "CharacterArmature|Flying_Idle", Walk = "CharacterArmature|Flying_Idle", Run = "CharacterArmature|Fast_Flying", RunRef = 3f,
+                Melee = "CharacterArmature|Headbutt", Heavy = "CharacterArmature|Headbutt", Stab = "CharacterArmature|Headbutt", Cast = "CharacterArmature|Punch",
+                Shoot = "CharacterArmature|Punch", Aim = "CharacterArmature|Flying_Idle", Dodge = "CharacterArmature|Fast_Flying",
+                Death = "CharacterArmature|Death", Hit = "CharacterArmature|HitReact"
+            };
+            Add("raven", Flyer("Pigeon", 1.05f, 0.9f, "2a2440", 0.85f, U.Hex("8a6ab8")));
+            Add("wraith", Flyer("Ghost_Skull", 1.5f, 0.35f, "9ad8e0", 0.6f, Pal.Frost));
+            Add("wight", Flyer("Ghost_Skull", 1.65f, 0.35f, "b8c8f0", 0.65f, ice));
+            Add("bloat", new ModelSpec
+            {
+                Model = "Quaternius/GreenSpikyBlob", ShowAll = true, RawHeight = 4.16f, Height = 1.35f, Tint = U.Hex("6a7a3a"), TintAmt = 0.6f, Rim = venom, RimAmt = 0.9f,
+                Idle = "CharacterArmature|Idle", Walk = "CharacterArmature|Walk", Run = "CharacterArmature|Walk", RunRef = 2f,
+                Melee = "CharacterArmature|Bite_Front", Heavy = "CharacterArmature|Jump", Stab = "CharacterArmature|Bite_Front", Cast = "CharacterArmature|Jump",
+                Shoot = "CharacterArmature|Bite_Front", Aim = "CharacterArmature|Idle", Dodge = "CharacterArmature|Jump",
+                Death = "CharacterArmature|Death", Hit = "CharacterArmature|HitRecieve"
+            });
+
             // creatures built in code
             Add("serpent", new ModelSpec { Proc = "serpent", Height = 1.6f, Tint = U.Hex("3a5a2a"), Rim = venom, RimAmt = 0.7f, Eyes = U.Hex("ffd040") });
             Add("larva", new ModelSpec { Proc = "larva", Height = 1.4f, Tint = U.Hex("c8b48a"), Rim = U.Hex("ffe0a0"), RimAmt = 0.5f, Eyes = Pal.Blood });
@@ -109,7 +145,6 @@ namespace Wyrdbound
     /// </summary>
     public sealed class Model3D : MonoBehaviour
     {
-        const float RawHeight = 2.5f;
         static readonly string[] BodyParts = { "_Arm", "_Body", "_Head", "_Leg", "_Cape", "_Hat", "_Helmet", "_Hood", "_Cloak", "_Eyes", "_Jaw", "_Skull" };
         static readonly Dictionary<string, Material> matCache = new Dictionary<string, Material>();
 
@@ -118,6 +153,7 @@ namespace Wyrdbound
         Transform inst, handR, handL;
         Animation anim;
         ProcBody proc;
+        float phase;
         readonly List<Renderer> rends = new List<Renderer>();
         readonly List<SkinnedMeshRenderer> skins = new List<SkinnedMeshRenderer>();
         MaterialPropertyBlock mpb;
@@ -143,6 +179,7 @@ namespace Wyrdbound
             m.Spec = spec;
             m.Id = id;
             m.mpb = new MaterialPropertyBlock();
+            m.phase = Random.value * 6.28f;
             if (spec.Proc != null)
             {
                 m.inst = new GameObject("proc").transform;
@@ -156,7 +193,7 @@ namespace Wyrdbound
             m.inst.name = "mesh";
             m.inst.localPosition = Vector3.zero;
             m.inst.localRotation = Quaternion.identity;
-            m.inst.localScale = Vector3.one * (spec.Height / RawHeight);
+            m.inst.localScale = Vector3.one * (spec.Height / spec.RawHeight);
             m.anim = m.inst.GetComponent<Animation>();
             m.mpb = new MaterialPropertyBlock();
             foreach (var t in m.inst.GetComponentsInChildren<Transform>(true))
@@ -193,7 +230,7 @@ namespace Wyrdbound
                 string n = r.name;
                 bool body = false;
                 foreach (var p in BodyParts) if (n.Contains(p)) { body = true; break; }
-                bool show = body ? System.Array.IndexOf(Spec.Hide, n) < 0 : System.Array.IndexOf(Spec.Show, n) >= 0;
+                bool show = Spec.ShowAll || (body ? System.Array.IndexOf(Spec.Hide, n) < 0 : System.Array.IndexOf(Spec.Show, n) >= 0);
                 r.gameObject.SetActive(show);
                 if (!show) continue;
                 Convert(r);
@@ -220,9 +257,10 @@ namespace Wyrdbound
         {
             bool glow = src != null && src.name.Contains("Glow");
             var tex = src != null && src.HasProperty("_MainTex") ? src.mainTexture : null;
-            string key = Id + "|" + (glow ? "glow" : tex != null ? tex.name : "none");
+            string key = Id + "|" + (glow ? "glow" : (src != null ? src.name : "-") + "|" + (tex != null ? tex.name : "none"));
             if (matCache.TryGetValue(key, out var m) && m != null) return m;
             m = Mats.NewLit(tex, "lit_" + key);
+            if (tex == null && src != null && src.HasProperty("_Color")) m.SetColor("_Color", src.color);
             if (glow)
             {
                 m.SetColor("_Color", Color.black);
@@ -388,7 +426,7 @@ namespace Wyrdbound
                 {
                     deadPlayed = true;
                     oneShot = null;
-                    string death = Spec.IsSkeleton ? "Death_C_Skeletons" : (Random.value < 0.5f ? "Death_A" : "Death_B");
+                    string death = Spec.Death ?? (Spec.IsSkeleton ? "Death_C_Skeletons" : (Random.value < 0.5f ? "Death_A" : "Death_B"));
                     Play(death, 1.2f, 0.08f, WrapMode.ClampForever);
                 }
                 if (r.DeadT > 1.4f) sink = Mathf.Min(2.5f, sink + dt * 0.6f);
@@ -402,7 +440,7 @@ namespace Wyrdbound
             }
             else if (r.Action == RigAction.Dash)
             {
-                Play("Dodge_Forward", 1.3f, 0.05f, WrapMode.ClampForever);
+                Play(Spec.Dodge, 1.3f, 0.05f, WrapMode.ClampForever);
             }
             else if (oneShot != null) { }
             else if (r.Action != RigAction.None)
@@ -420,13 +458,13 @@ namespace Wyrdbound
                         if (k < 1f) Play(Spec.Aim, 1f, 0.12f);
                         else Scrub(Spec.Shoot, 0.45f);
                         break;
-                    default: Play("Spellcasting", 1f, 0.12f); break;
+                    default: Play(Spec.Cast, 1f, 0.12f); break;
                 }
             }
             else if (r.Hurt > 0.9f && Time.time - lastHurt > 0.3f)
             {
                 lastHurt = Time.time;
-                PlayOnce(Random.value < 0.5f ? "Hit_A" : "Hit_B", 0.3f, 0.05f);
+                PlayOnce(Spec.Hit ?? (Random.value < 0.5f ? "Hit_A" : "Hit_B"), 0.3f, 0.05f);
             }
             else
             {
@@ -434,11 +472,12 @@ namespace Wyrdbound
                 float scale = Spec.Height / 1.6f;
                 if (s < 0.3f) Play(Spec.Idle, 1f, 0.2f);
                 else if (Spec.Shamble) Play("Walking_D_Skeletons", Mathf.Clamp(s / (1.7f * scale), 0.6f, 2f), 0.15f);
-                else if (s < 1.6f * scale) Play("Walking_A", Mathf.Clamp(s / (1.4f * scale), 0.6f, 1.6f), 0.15f);
-                else Play("Running_A", Mathf.Clamp(s / (4.2f * scale), 0.7f, 1.7f), 0.12f);
+                else if (s < 1.6f * scale) Play(Spec.Walk, Mathf.Clamp(s / (1.4f * scale), 0.6f, 1.6f), 0.15f);
+                else Play(Spec.Run, Mathf.Clamp(s / (Spec.RunRef * scale), 0.7f, 1.7f), 0.12f);
             }
 
-            inst.localPosition = new Vector3(0f, -sink, 0f);
+            float hover = Spec.Hover > 0f && !r.Dead ? Spec.Hover + Mathf.Sin(Time.time * 2.3f + phase) * 0.08f : 0f;
+            inst.localPosition = new Vector3(0f, hover - sink, 0f);
             transform.localScale = new Vector3(sx * spawnScale, sy * spawnScale, sx * spawnScale);
         }
 

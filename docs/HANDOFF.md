@@ -117,7 +117,17 @@ floor plane (XY) and replace only the view.** Height above the floor is **-Z**.
   (Níðhöggr's horned head with jaw). Níðhöggr's `BossSegment`s are 3D spined coils.
 - **Occlusion fade:** `Occluder` + `_Dither` (Bayer screen-door in `Wyrd/Lit`) fades tall props hiding Narfi.
   `Wyrd/Lit` is `#pragma target 3.5` (needs >10 interpolators).
-- **Still 2D billboards:** helhound, garmr, bone_rat, raven, wraith, wight, bloat, mimir, norns. Free CC0 candidates
-  found (Quaternius, Google Drive; awaiting the user's OK to download): Wolf.fbx (Ultimate Animated Animals) for
+- Creature sourcing (now done, see below): Quaternius, Google Drive: Wolf.fbx (Ultimate Animated Animals) for
   helhound/Garmr, Ghost_Skull.fbx for wraith/wight, Pigeon.fbx (tinted black) for raven, GreenSpikyBlob.fbx for
   bloat. Direct download: `https://drive.google.com/uc?export=download&id=<id>`; ids: Wolf `128WmNfZthQqZ1OZpinWCAJ8IgvjNcoSm`, Ghost_Skull `1pQDfJwnc4r3PiVL73h4waXkqFuFngl6Y`, Pigeon `1HV4WM2FRJXlq3Wz6awceZExVnRD_lPAp`, GreenSpikyBlob `1i8XpBxwTqM_4JRN0D986NfLT4_QPFAC6`, Dragon_Evolved `1_ColYvoIS7vj1N4qWrLuTmZmVK_lsu7j`.
+
+### Quaternius creatures (2026-10-17)
+- Downloaded (user approved) to `Assets/ThirdParty/Resources/Quaternius/` (CC0, LICENSE.txt there): Wolf → helhound
+  and Garmr, Pigeon → raven (tinted black), Ghost_Skull → wraith and wight, GreenSpikyBlob → bloat.
+- `ModelSpec` now carries per-model clip names (`Walk/Run/Dodge/Cast/Death/Hit/...`), `RawHeight` (source height),
+  `Hover` (flyers), `RunRef`, `ShowAll` (non-KayKit: every renderer is body).
+- **Import gotcha:** Blender rigs key the armature at scale 1, so `KayKitImport` sets `removeConstantScaleCurves`
+  (postprocessor version 2). The `KayKit Report` sizes for these FBX read 100x too big — real heights are ~3 units.
+- **Model gallery:** `Wyrdbound.exe -wyrdtest -wyrdgallery -wyrdout DIR` lines up every 3D model in four groups and
+  screenshots idle / run / windup / strike / death poses. Use it after changing `ModelSpecs`.
+- Still 2D billboards: bone_rat, mimir, norns (and props without a model: statue, tree, brazier, throne, gate...).

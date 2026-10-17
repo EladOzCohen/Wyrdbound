@@ -133,3 +133,4 @@ See `docs/HANDOFF.md` → "3D conversion" for how it fits together.
 3D characters, weapons and dungeon props: **KayKit** by Kay Lousberg (www.kaylousberg.com), released under
 Creative Commons Zero (CC0). Packs used: Character Pack: Adventurers, Character Pack: Skeletons, Dungeon Remastered.
 They live in `Assets/ThirdParty/Resources/KayKit/` with their original license files.
+Creatures (wolf, raven, ghost, blob): **Quaternius** (quaternius.com), CC0 — in `Assets/ThirdParty/Resources/Quaternius/`.

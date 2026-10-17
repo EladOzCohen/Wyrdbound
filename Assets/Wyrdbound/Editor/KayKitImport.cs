@@ -12,8 +12,11 @@ namespace Wyrdbound.EditorTools
     /// </summary>
     public sealed class KayKitImport : AssetPostprocessor
     {
-        static bool IsKayKit(string path) => path.Replace('\\', '/').Contains("/Resources/KayKit/");
-        static bool IsCharacter(string path) => IsKayKit(path) && path.Replace('\\', '/').Contains("/Characters/");
+        static string P(string path) => path.Replace('\\', '/');
+        static bool IsKayKit(string path) => P(path).Contains("/Resources/KayKit/") || P(path).Contains("/Resources/Quaternius/");
+        static bool IsCharacter(string path) => IsKayKit(path) && (P(path).Contains("/Characters/") || P(path).Contains("/Quaternius/"));
+
+        public override uint GetVersion() => 2;
 
         void OnPreprocessModel()
         {
@@ -29,6 +32,9 @@ namespace Wyrdbound.EditorTools
                 mi.animationType = ModelImporterAnimationType.Legacy;
                 mi.importAnimation = true;
                 mi.animationCompression = ModelImporterAnimationCompression.KeyframeReductionAndCompression;
+                // Blender-made rigs (Quaternius) key the armature at scale 1, undoing the cm->m import scale and
+                // shrinking the model 100x; constant scale curves carry no motion, so drop them.
+                mi.removeConstantScaleCurves = true;
             }
             else
             {
@@ -50,7 +56,7 @@ namespace Wyrdbound.EditorTools
         public static void Report()
         {
             var sb = new StringBuilder();
-            foreach (var guid in AssetDatabase.FindAssets("t:GameObject", new[] { "Assets/ThirdParty/Resources/KayKit" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:GameObject", new[] { "Assets/ThirdParty/Resources/KayKit", "Assets/ThirdParty/Resources/Quaternius" }))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
