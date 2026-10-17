@@ -10,8 +10,8 @@ namespace Wyrdbound
             World.Grid = g;
             World.Biome = b;
             var root = World.Root;
-            var floor = Mats.SR(root, "floor", RoomArt.PaintFloor(g, b, seed, carving, runner), Sort.Floor);
-            floor.transform.position = new Vector3(g.Origin.x, g.Origin.y, 0f);
+            Room3D.Floor(g, b, RoomArt.PaintFloor(g, b, seed, carving, runner), root);
+            Atmosphere.Apply(b);
             var amb = root.gameObject.AddComponent<Ambient>();
             amb.Init(g, b, seed);
             foreach (var o in g.Obstacles) Prop(root, o, b, true, amb);
@@ -26,11 +26,18 @@ namespace Wyrdbound
 
         public static SpriteRenderer Prop(Transform root, Obstacle o, Biome b, bool solid, Ambient amb)
         {
+            if (solid && Room3D.Prop(root, o.Kind, o.Pos, o.R, b, Mathf.RoundToInt(o.Pos.x * 31f + o.Pos.y * 17f)) != null)
+            {
+                if (o.Kind == "pillar" || o.Kind == "stone") amb?.AddGlow(o.Pos + new Vector2(0f, 1.4f), b.Accent, 2.2f);
+                return null;
+            }
             var sr = Mats.SR(root, o.Kind, PropArt.Get(o.Kind, b), solid ? Sort.Y(o.Pos.y) : Sort.FloorFx + 20);
             sr.transform.position = new Vector3(o.Pos.x, o.Pos.y, 0f);
             if (solid)
             {
-                var sh = Mats.SR(sr.transform, "shadow", SpriteLib.Shadow, Sort.Shadow, new Color(1, 1, 1, 0.7f));
+                View3D.Stand(sr.transform);
+                var sh = Mats.SR(root, "shadow", SpriteLib.Shadow, Sort.Shadow, new Color(1, 1, 1, 0.7f));
+                sh.transform.position = new Vector3(o.Pos.x, o.Pos.y, 0f);
                 sh.transform.localScale = new Vector3(o.R * 3.2f, o.R * 3.2f, 1f);
             }
             if (o.Kind == "brazier") amb?.AddFlame(o.Pos + new Vector2(0f, 0.85f), Pal.Ember);

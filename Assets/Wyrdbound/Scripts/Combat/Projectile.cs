@@ -55,6 +55,7 @@ namespace Wyrdbound
             p.Pos = pos;
             p.pierceLeft = spec.Pierce;
             p.sr = Mats.SR(go.transform, "sprite", spec.Sprite, Sort.Fx - 20, spec.Color, spec.Additive);
+            p.sr.sharedMaterial = spec.Additive ? Mats.AdditiveTop : Mats.SpriteTop;
             p.sr.transform.localScale = new Vector3(spec.Scale, spec.Scale, 1f);
             p.shadow = Mats.SR(go.transform, "shadow", SpriteLib.Shadow, Sort.Shadow, new Color(1, 1, 1, 0.5f));
             p.shadow.transform.localScale = new Vector3(spec.Scale * 0.5f, spec.Scale * 0.5f, 1f);

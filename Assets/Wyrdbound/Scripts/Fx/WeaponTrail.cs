@@ -34,7 +34,7 @@ namespace Wyrdbound
             t.mesh = new Mesh();
             t.mesh.MarkDynamic();
             mf.sharedMesh = t.mesh;
-            var mat = new Material(Mats.Additive);
+            var mat = new Material(Mats.AdditiveTop);
             mat.mainTexture = Grad();
             t.mr.sharedMaterial = mat;
             t.mr.sortingOrder = Sort.FxHigh - 5;

@@ -77,3 +77,33 @@ Play-test (opens a window; it quits by itself):
 ```bash
 Builds/Windows/Wyrdbound.exe -wyrdtest -wyrdout <dir> -screen-fullscreen 0 -screen-width 1600 -screen-height 900
 ```
+
+## 3D conversion (2026-10-17, branch `3d`)
+The user wanted real 3D instead of "almost pure 2D", at zero cost. Approach: **keep every line of gameplay on the 2D
+floor plane (XY) and replace only the view.** Height above the floor is **-Z**.
+- **Free art:** KayKit (CC0) Adventurers + Skeletons + Dungeon Remastered, downloaded from the official
+  `KayKit-Game-Assets` GitHub into `Assets/ThirdParty/Resources/KayKit/` (CC0 → fine in the public repo).
+  `Editor/KayKitImport.cs` imports characters as **Legacy** animation (each FBX carries ~75-90 clips) and has a
+  `Wyrdbound → KayKit Report` menu that lists clips/bones/sizes into `KayKitReport.txt`.
+- **`Fx/View3D.cs`**: pitch 52°, FOV 30°; `At`, `Flatten` (3D point → equivalent floor point), `Face(dir)` (stand a
+  Y-up model on the floor), `TowardCam`, `Billboard` (upright sprites face the camera), `LightSync` (every 2D light
+  sprite also drives a real point light).
+- **`Fx/CameraRig.cs`**: perspective, deferred rendering; `HalfH/HalfW/Center` replace orthographicSize;
+  `ScreenToWorld` ray-casts the floor plane.
+- **`Fx/Model3D.cs`**: `ModelSpecs` = cast list (which art id → which KayKit body, tint, rim colour, visible items,
+  extra weapon models). `Model3D` plays clips from `RigInput`: idle/walk/run/shamble, attacks **scrubbed** in sync
+  with AI windup/strike, slams, stabs, casts, aim/shoot, dodge, hit, death (skeletons fall apart), skeleton
+  spawn-from-ground; baked-mesh additive afterimages (`Wyrd/Ghost`). Player swings use `Player.OnSwingBegin` →
+  `SwingTimed` so the clip's contact frame lands when the gameplay windup ends.
+- **Not modelled yet (still 2D rigs as billboards):** helhound, garmr, bone_rat, raven, serpent, larva, Níðhöggr,
+  wraith, wight, bloat, bell, mimir, norns. Candidates: Quaternius CC0 packs (Yeti for Hrímþurs/frost giants, animals).
+- **`World/Room3D.cs`**: floor slab mesh (painted floor texture) + 3-row cliff skirts with a procedural tiling rock
+  texture; `Prop()` maps prop kinds to Dungeon models (pillar, stone, chest, table) — others remain billboards.
+- **`Fx/Atmosphere.cs`**: realm ambient + a shadow-casting "moon" directional light; shadow quality settings.
+- **Shaders:** `Wyrd/Lit` (surface shader: tint-recolour, rim light, emission, hit flash); sprite shaders gained a
+  `_ZTest` property — `Mats.Sprite/Additive` are depth-tested (decals, billboards), `Mats.SpriteTop/AdditiveTop`
+  draw over everything (particles, projectiles, trails, bars) like the 2D game did.
+- Verified: compiles clean, Windows build OK, bot runs with 0 errors / 0 exceptions (4-room run + death + hall).
+- **Next (3D):** models for the creatures above; KayKit Dungeon walls/banners/torches dressing chamber edges;
+  3D doors (`wall_doorway`); camera occlusion fade for tall pillars; tune tints/heights per character; higher-res
+  floor painting (RoomArt.PPU 32 → 48) since the camera is closer now; FXAA (deferred has no MSAA).

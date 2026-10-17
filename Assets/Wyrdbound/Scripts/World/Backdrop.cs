@@ -9,7 +9,7 @@ namespace Wyrdbound
     /// </summary>
     public sealed class Backdrop : MonoBehaviour
     {
-        sealed class Layer { public Transform T; public float Factor; public Vector2 Origin; public float Drift; }
+        sealed class Layer { public Transform T; public float Factor; public Vector2 Origin; public float Drift; public float Scale; }
 
         readonly List<Layer> layers = new List<Layer>();
         static readonly Dictionary<string, Sprite> cache = new Dictionary<string, Sprite>();
@@ -36,19 +36,29 @@ namespace Wyrdbound
             var sr = Mats.SR(transform, "layer", s, order);
             sr.sharedMaterial = Mats.Unlit;
             sr.transform.localScale = new Vector3(scale, scale, 1f);
-            var l = new Layer { T = sr.transform, Factor = factor, Drift = drift };
+            var l = new Layer { T = sr.transform, Factor = factor, Drift = drift, Scale = scale };
             layers.Add(l);
             return l;
         }
 
         void LateUpdate()
         {
-            var cam = Game.I.Cam.transform.position;
+            // In 3D the parallax is real: the nebula hangs far behind the view, the ruins drift deep below the floor.
             float t = Time.time;
+            var fwd = View3D.CamRot * Vector3.forward;
             foreach (var l in layers)
             {
-                var p = new Vector2(cam.x, cam.y) * l.Factor + l.Origin * (1f - l.Factor) + new Vector2(l.Drift * t, Mathf.Sin(t * 0.2f + l.Origin.x) * 0.2f);
-                l.T.position = new Vector3(p.x, p.y, 0f);
+                l.T.rotation = View3D.CamRot;
+                if (l.Factor >= 0.85f)
+                {
+                    l.T.position = View3D.CamPos + fwd * 160f;
+                    l.T.localScale = Vector3.one * l.Scale * 4.6f;
+                    continue;
+                }
+                float depth = Mathf.Lerp(8f, 34f, Mathf.InverseLerp(0.55f, 0.8f, l.Factor));
+                var p = l.Origin * (1f + depth * 0.04f) + new Vector2(l.Drift * t, Mathf.Sin(t * 0.2f + l.Origin.x) * 0.2f);
+                l.T.position = new Vector3(p.x, p.y, depth);
+                l.T.localScale = Vector3.one * l.Scale * (1f + depth * 0.05f);
             }
         }
 

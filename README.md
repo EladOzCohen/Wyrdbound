@@ -121,3 +121,15 @@ docs/
 ---
 
 *Original code and content. Norse mythology is public domain; all characterisation and writing here is original.*
+
+## 3D view (branch `3d`)
+
+The `3d` branch shows the same game in 3D: a tilted perspective camera, real lights and shadows, chambers built as
+floating rock islands, and animated 3D characters. Gameplay is unchanged (it still runs on the floor plane).
+See `docs/HANDOFF.md` → "3D conversion" for how it fits together.
+
+### Credits
+
+3D characters, weapons and dungeon props: **KayKit** by Kay Lousberg (www.kaylousberg.com), released under
+Creative Commons Zero (CC0). Packs used: Character Pack: Adventurers, Character Pack: Skeletons, Dungeon Remastered.
+They live in `Assets/ThirdParty/Resources/KayKit/` with their original license files.

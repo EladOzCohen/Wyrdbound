@@ -7,6 +7,7 @@ Shader "Wyrd/Sprite"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4
         _Flash ("Flash", Range(0,1)) = 0
         _FlashColor ("Flash Color", Color) = (1,1,1,1)
         _Lit ("Lit", Range(0,1)) = 1
@@ -17,7 +18,7 @@ Shader "Wyrd/Sprite"
         Cull Off
         Lighting Off
         ZWrite Off
-        ZTest Always
+        ZTest [_ZTest]
         Blend One OneMinusSrcAlpha
 
         Pass

@@ -173,6 +173,7 @@ namespace Wyrdbound
             P.Facing = dir;
             sideSign = (s.Flip ? -1f : 1f) * (dir.x < 0f ? -1f : 1f);
             dashStrike = k == HitKind.Attack && P.SinceDash < 0.2f;
+            P.OnSwingBegin(s, Speed);
             OnBegin(s, k);
         }
 

@@ -68,13 +68,14 @@ namespace Wyrdbound
                 m.Pos.x += m.Speed * dt;
                 if (m.Pos.x > bounds.xMax + 10f) m.Pos.x = bounds.xMin - 10f;
                 if (m.Pos.x < bounds.xMin - 10f) m.Pos.x = bounds.xMax + 10f;
-                m.Sr.transform.position = new Vector3(m.Pos.x, m.Pos.y + Mathf.Sin(t * 0.2f + m.Phase) * 0.4f, 0f);
+                m.Sr.transform.position = new Vector3(m.Pos.x, m.Pos.y + Mathf.Sin(t * 0.2f + m.Phase) * 0.4f, m.Sr.sortingOrder == Sort.Mist ? 2.5f : -2.6f);
                 m.Sr.color = biome.Fog.A(m.Alpha * (0.8f + 0.2f * Mathf.Sin(t * 0.3f + m.Phase)));
             }
             foreach (var f in flames)
             {
                 float flick = 0.85f + 0.15f * Mathf.PerlinNoise(t * 6f, f.Phase) + 0.05f * Mathf.Sin(t * 23f + f.Phase);
-                f.Core.transform.position = f.Pos;
+                f.Core.transform.position = View3D.At(f.Pos - new Vector2(0f, 0.85f)) + View3D.CamRot * Vector3.up * 0.85f;
+                f.Core.transform.rotation = View3D.CamRot;
                 f.Core.transform.localScale = new Vector3(0.9f * flick, 1.25f * flick, 1f);
                 f.Light.transform.localScale = new Vector3(6.5f * flick, 6.5f * flick, 1f);
                 f.Light.color = f.Col.A(0.95f * flick);
@@ -86,8 +87,8 @@ namespace Wyrdbound
             if (emitT > 0f) return;
             emitT = 0.07f;
             var cam = Game.I.Cam;
-            float hh = cam.Cam.orthographicSize, hw = hh * cam.Cam.aspect;
-            Vector2 c = cam.transform.position;
+            float hh = cam.HalfH, hw = cam.HalfW;
+            Vector2 c = cam.Center;
             var pos = c + new Vector2(Random.Range(-hw, hw), Random.Range(-hh, hh));
             switch (biome.Amb)
             {

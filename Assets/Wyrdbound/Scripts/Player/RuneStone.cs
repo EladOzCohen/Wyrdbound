@@ -27,6 +27,7 @@ namespace Wyrdbound
             r.Pos = pos;
             r.Stuck = stuck;
             r.sr = Mats.SR(go.transform, "stone", SpriteLib.RuneStone, Sort.Y(pos.y), col);
+            View3D.Stand(r.sr.transform);
             r.sr.transform.localScale = new Vector3(0.75f, 0.75f, 1f);
             r.glow = Mats.SR(go.transform, "glow", SpriteLib.Light, Sort.FloorFx, col.A(0.8f), true);
             Lights.ToLayer(r.glow);

@@ -19,3 +19,6 @@
 *.apk
 *.aab
 crashlytics-build.properties
+KayKitReport.txt
+*.log
+UpgradeLog.htm

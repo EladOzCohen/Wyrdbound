@@ -17,6 +17,7 @@ namespace Wyrdbound
             sr.gameObject.layer = Layer;
             sr.transform.localPosition = new Vector3(offset.x, offset.y, 0f);
             sr.transform.localScale = new Vector3(radius * 2f, radius * 2f, 1f);
+            LightSync.Attach(sr, 1.2f + Mathf.Max(0f, offset.y));
             return sr;
         }
 
@@ -30,7 +31,9 @@ namespace Wyrdbound
 
         public static void ToLayer(SpriteRenderer sr)
         {
-            if (sr != null) sr.gameObject.layer = Layer;
+            if (sr == null) return;
+            sr.gameObject.layer = Layer;
+            LightSync.Attach(sr);
         }
     }
 
@@ -52,7 +55,8 @@ namespace Wyrdbound
             var go = new GameObject("LightCamera");
             go.transform.SetParent(transform, false);
             lightCam = go.AddComponent<Camera>();
-            lightCam.orthographic = true;
+            lightCam.orthographic = main.orthographic;
+            lightCam.fieldOfView = main.fieldOfView;
             lightCam.cullingMask = 1 << Lights.Layer;
             lightCam.clearFlags = CameraClearFlags.SolidColor;
             lightCam.depth = main.depth - 1f;
@@ -82,7 +86,11 @@ namespace Wyrdbound
             Shader.SetGlobalFloat("_WyrdLightFlip", 0f);
             if (!on) return;
             Resize();
+            lightCam.orthographic = main.orthographic;
             lightCam.orthographicSize = main.orthographicSize;
+            lightCam.fieldOfView = main.fieldOfView;
+            lightCam.nearClipPlane = main.nearClipPlane;
+            lightCam.farClipPlane = main.farClipPlane;
             lightCam.aspect = main.aspect;
             lightCam.backgroundColor = Ambient;
         }

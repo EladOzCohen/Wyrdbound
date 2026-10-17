@@ -111,11 +111,13 @@ namespace Wyrdbound
             if (Dead)
             {
                 UpdateVisual(dt, Vector2.zero);
-                float k = Mathf.Clamp01((deadT - 0.35f) / 0.35f);
-                SetAlpha(1f - k);
+                // 3D bodies play their death and sink into the floor; 2D rigs fade quickly
+                float fadeAt = Model != null ? 1.5f : 0.35f, fadeLen = Model != null ? 0.9f : 0.35f;
+                float k = Mathf.Clamp01((deadT - fadeAt) / fadeLen);
+                if (Model == null) SetAlpha(1f - k);
                 if (ShadowR != null) ShadowR.color = new Color(1, 1, 1, 1f - k);
                 if (k > 0f && UnityEngine.Random.value < 0.5f) Vfx.Motes(Center, 1, Def.Blood, 0.5f, 1.5f, 0.6f);
-                if (deadT > 0.75f) Destroy(gameObject);
+                if (deadT > fadeAt + fadeLen + 0.05f) Destroy(gameObject);
                 return;
             }
             if (Spawning)

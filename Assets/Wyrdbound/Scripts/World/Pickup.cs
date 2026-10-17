@@ -28,9 +28,10 @@ namespace Wyrdbound
             p.light = Mats.SR(go.transform, "light", SpriteLib.Light, Sort.FloorFx + 4, c.A(0.9f), true);
             Lights.ToLayer(p.light);
             p.light.transform.localScale = new Vector3(4f, 4f, 1f);
-            p.glow = Mats.SR(go.transform, "glow", SpriteLib.Glow, Sort.Y(pos.y) - 1, c.A(0.5f), true);
+            var up = View3D.UprightChild(go.transform);
+            p.glow = Mats.SR(up, "glow", SpriteLib.Glow, Sort.Y(pos.y) - 1, c.A(0.5f), true);
             p.glow.transform.localScale = new Vector3(1.8f, 1.8f, 1f);
-            p.icon = Mats.SR(go.transform, "icon", SpriteLib.RewardIcon(r, g, false), Sort.Y(pos.y));
+            p.icon = Mats.SR(up, "icon", SpriteLib.RewardIcon(r, g, false), Sort.Y(pos.y));
             p.icon.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
             var sh = Mats.SR(go.transform, "shadow", SpriteLib.Shadow, Sort.Shadow, new Color(1, 1, 1, 0.6f));
             sh.transform.localScale = new Vector3(0.9f, 0.9f, 1f);

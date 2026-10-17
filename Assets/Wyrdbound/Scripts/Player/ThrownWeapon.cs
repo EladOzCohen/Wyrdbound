@@ -47,6 +47,7 @@ namespace Wyrdbound
             t.spin = spin;
             t.onReturn = onReturn;
             t.sr = Mats.SR(go.transform, "sprite", sprite, Sort.Fx - 20);
+            t.sr.sharedMaterial = Mats.SpriteTop;
             t.sr.transform.localPosition = new Vector3(0f, 0.55f, 0f);
             t.sr.transform.rotation = Quaternion.Euler(0, 0, dir.Ang());
             if (mode == Mode.Bounce) t.target = Combat.Nearest(from + dir * 3f, Team.Enemy, 7f);

@@ -75,6 +75,7 @@ namespace Wyrdbound
             UI = ui.AddComponent<UIRoot>();
             UI.Init();
 
+            Atmosphere.Init();
             Director = gameObject.AddComponent<RunDirector>();
             Hub = new Hub();
 

@@ -39,6 +39,46 @@ namespace Wyrdbound
             }
         }
 
+
+        static Material spriteTop, additiveTop;
+
+        /// <summary>Sprite material that ignores depth: particles, projectiles and text draw over the 3D world like in 2D.</summary>
+        public static Material SpriteTop
+        {
+            get
+            {
+                if (spriteTop == null) { spriteTop = new Material(Sprite) { name = "WyrdSpriteTop" }; spriteTop.SetFloat("_ZTest", 8f); }
+                return spriteTop;
+            }
+        }
+
+        public static Material AdditiveTop
+        {
+            get
+            {
+                if (additiveTop == null) { additiveTop = new Material(Additive) { name = "WyrdAdditiveTop" }; additiveTop.SetFloat("_ZTest", 8f); }
+                return additiveTop;
+            }
+        }
+
+        /// <summary>A new lit material for 3D surfaces (models, floor, cliffs).</summary>
+        public static Material NewLit(Texture tex, string name = "WyrdLit")
+        {
+            var m = Make("Shaders/WyrdLit", "Standard");
+            m.name = name;
+            if (tex != null) m.mainTexture = tex;
+            return m;
+        }
+
+        static Material ghost;
+        public static Material Ghost
+        {
+            get
+            {
+                if (ghost == null) ghost = Make("Shaders/WyrdGhost", "Sprites/Default");
+                return ghost;
+            }
+        }
         static Material Make(string resource, string fallback)
         {
             var sh = Resources.Load<Shader>(resource);

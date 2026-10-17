@@ -4,6 +4,7 @@ Shader "Wyrd/Additive"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4
     }
     SubShader
     {
@@ -11,7 +12,7 @@ Shader "Wyrd/Additive"
         Cull Off
         Lighting Off
         ZWrite Off
-        ZTest Always
+        ZTest [_ZTest]
         Blend One One
 
         Pass

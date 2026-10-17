@@ -25,6 +25,8 @@ namespace Wyrdbound
         public Transform Visual;
         public SpriteRenderer Body, ShadowR;
         public Rig Rig;
+        public Model3D Model;
+        Transform overlay;
         protected float hurtT, deadT;
         protected float flash;
         protected Color flashColor = Color.white;
@@ -56,8 +58,18 @@ namespace Wyrdbound
         {
             Visual = new GameObject("visual").transform;
             Visual.SetParent(transform, false);
-            Rig = Rig.Build(Visual, artId);
-            Body = Rig.Main;
+            Model = Model3D.Build(Visual, artId);
+            if (Model != null)
+            {
+                Body = Mats.SR(Visual, "body", null, 0);
+                VisualHeight = Model.Spec.Height * 0.9f;
+            }
+            else
+            {
+                Rig = Rig.Build(Visual, artId);
+                Body = Rig.Main;
+                View3D.Stand(Visual);
+            }
             BuildCommon(shadowSize, healthBar);
         }
 
@@ -66,18 +78,29 @@ namespace Wyrdbound
             Visual = new GameObject("visual").transform;
             Visual.SetParent(transform, false);
             Body = Mats.SR(Visual, "body", body, 0);
+            View3D.Stand(Visual);
             BuildCommon(shadowSize, healthBar);
         }
 
         public void SetAlpha(float a)
         {
-            if (Rig != null) Rig.SetColor(new Color(1f, 1f, 1f, a));
+            if (Model != null)
+            {
+                Body.color = new Color(1f, 1f, 1f, a);
+                Model.SetVisible(Body.enabled && a > 0.5f);
+            }
+            else if (Rig != null) Rig.SetColor(new Color(1f, 1f, 1f, a));
             else if (Body != null) Body.color = new Color(1f, 1f, 1f, a);
         }
 
         public void SetVisible(bool v)
         {
-            if (Rig != null) Rig.SetVisible(v);
+            if (Model != null)
+            {
+                Body.enabled = v;
+                Model.SetVisible(v && Body.color.a > 0.5f);
+            }
+            else if (Rig != null) Rig.SetVisible(v);
             else if (Body != null) Body.enabled = v;
         }
 
@@ -85,7 +108,8 @@ namespace Wyrdbound
 
         public void Afterimage(Color c, float life)
         {
-            if (Rig != null) Rig.Afterimage(c, life);
+            if (Model != null) Model.Afterimage(c, life);
+            else if (Rig != null) Rig.Afterimage(c, life);
             else Vfx.Afterimage(Body, c, life);
         }
 
@@ -100,14 +124,20 @@ namespace Wyrdbound
             mpb = new MaterialPropertyBlock();
             if (healthBar)
             {
-                barBg = Mats.SR(transform, "barbg", SpriteLib.Square, Sort.Fx - 5, new Color(0, 0, 0, 0.75f));
-                barFill = Mats.SR(transform, "bar", SpriteLib.Square, Sort.Fx - 4, Pal.Blood);
-                barArmor = Mats.SR(transform, "bararmor", SpriteLib.Square, Sort.Fx - 3, Pal.Armor);
+                overlay = View3D.UprightChild(transform, "overlay");
+                barBg = Mats.SR(overlay, "barbg", SpriteLib.Square, Sort.Fx - 5, new Color(0, 0, 0, 0.75f));
+                barFill = Mats.SR(overlay, "bar", SpriteLib.Square, Sort.Fx - 4, Pal.Blood);
+                barArmor = Mats.SR(overlay, "bararmor", SpriteLib.Square, Sort.Fx - 3, Pal.Armor);
                 SetBarVisible(false);
             }
-            statusIcon = Mats.SR(transform, "status", Runes.Sprite(Runes.Tiwaz), Sort.Fx - 2, true);
+            if (overlay == null) overlay = View3D.UprightChild(transform, "overlay");
+            statusIcon = Mats.SR(overlay, "status", Runes.Sprite(Runes.Tiwaz), Sort.Fx - 2, true);
+            statusIcon.sharedMaterial = Mats.AdditiveTop;
+            if (barBg != null) barBg.sharedMaterial = barFill.sharedMaterial = barArmor.sharedMaterial = Mats.SpriteTop;
             statusIcon.enabled = false;
         }
+
+        float BarY => Model != null ? Model.Spec.Height * 0.68f + 0.35f : VisualHeight * baseScale + 0.25f;
 
         void SetBarVisible(bool v)
         {
@@ -258,8 +288,24 @@ namespace Wyrdbound
             float speed = vel.magnitude;
             float side = Facing.x < -0.05f ? -1f : 1f;
             float sx = baseScale * (1f + squash), sy = baseScale * (1f - squash * 0.8f);
-            Visual.localScale = new Vector3(side * sx, sy, 1f);
-            if (Rig != null)
+            if (Model != null)
+            {
+                Model.SetFlash(fl, fc);
+                Visual.localScale = Vector3.one * baseScale;
+                Visual.localPosition = new Vector3(0f, 0f, -lift * 0.8f);
+                Model.Squash(squash);
+                Model.SetVisible(Body.enabled && Body.color.a > 0.5f);
+                var ri = new RigInput
+                {
+                    Speed = St.Frozen > 0f ? 0f : speed, MaxSpeed = RigMaxSpeed, Hurt = hurtT / 0.28f,
+                    Dead = Dead, DeadT = deadT, Spawn = 1f
+                };
+                FillRig(ref ri);
+                Model.Animate(ri, Facing, St.Frozen > 0f ? 0f : dt);
+            }
+            else Visual.localScale = new Vector3(side * sx, sy, 1f);
+            if (Model != null) { }
+            else if (Rig != null)
             {
                 Visual.localPosition = new Vector3(0f, lift, 0f);
                 Visual.localRotation = Quaternion.identity;
@@ -288,7 +334,7 @@ namespace Wyrdbound
                 if (show)
                 {
                     float w = Mathf.Clamp(Radius * 2.4f, 0.8f, 2.2f);
-                    float y = VisualHeight * baseScale + 0.25f;
+                    float y = BarY;
                     barBg.transform.localPosition = new Vector3(0f, y, 0f);
                     barBg.transform.localScale = new Vector3(w + 0.08f, 0.16f, 1f);
                     float f = Mathf.Clamp01(HP / MaxHP);
@@ -319,7 +365,7 @@ namespace Wyrdbound
                     float pulse = 1f + 0.12f * Mathf.Sin(Time.time * 10f);
                     float sz = 0.45f * pulse * (St.VerdictT > 0f ? 1.3f : 1f);
                     statusIcon.transform.localScale = new Vector3(sz, sz, 1f);
-                    statusIcon.transform.localPosition = new Vector3(0f, VisualHeight * baseScale + 0.65f, 0f);
+                    statusIcon.transform.localPosition = new Vector3(0f, BarY + 0.4f, 0f);
                     statusIcon.color = c;
                 }
             }

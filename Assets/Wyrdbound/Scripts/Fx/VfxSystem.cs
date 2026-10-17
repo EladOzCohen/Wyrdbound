@@ -120,7 +120,9 @@ namespace Wyrdbound
             p.pos = pos; p.vel = vel; p.t = 0f; p.life = life; p.s0 = s0; p.s1 = s1; p.c0 = c0; p.c1 = c1;
             p.rot = rot; p.rotSpd = rotSpd; p.drag = drag; p.aspect = aspect; p.grav = grav; p.unscaled = unscaled;
             p.sr.sprite = s;
-            p.sr.sharedMaterial = add ? Mats.Additive : Mats.Sprite;
+            bool ground = order <= Sort.Shadow + 100 || layer == Lights.Layer;
+            p.sr.sharedMaterial = ground ? (add ? Mats.Additive : Mats.Sprite) : (add ? Mats.AdditiveTop : Mats.SpriteTop);
+            if (layer == Lights.Layer) LightSync.Attach(p.sr, 0.9f);
             p.sr.sortingOrder = order;
             p.sr.flipX = flip;
             p.sr.gameObject.layer = layer;
@@ -248,9 +250,12 @@ namespace Wyrdbound
                 float pop = k < 0.12f ? Mathf.Lerp(1.6f, 1f, k / 0.12f) : 1f;
                 float s = f.size * pop;
                 float a = k > 0.65f ? 1f - (k - 0.65f) / 0.35f : 1f;
-                f.tm.transform.position = new Vector3(f.pos.x, f.pos.y, 0f);
-                f.shadow.transform.position = new Vector3(f.pos.x + 0.05f, f.pos.y - 0.05f, 0f);
-                f.tm.transform.localScale = f.shadow.transform.localScale = new Vector3(s, s, 1f);
+                // numbers face the camera and float toward it so no model can hide them
+                var wp = View3D.TowardCam(new Vector3(f.pos.x, f.pos.y, 0f), 4f, out float shrink);
+                Vector3 right = View3D.CamRot * Vector3.right, up = View3D.CamRot * Vector3.up;
+                f.tm.transform.SetPositionAndRotation(wp, View3D.CamRot);
+                f.shadow.transform.SetPositionAndRotation(wp + (right - up) * 0.05f * shrink + View3D.CamRot * Vector3.forward * 0.01f, View3D.CamRot);
+                f.tm.transform.localScale = f.shadow.transform.localScale = new Vector3(s, s, 1f) * shrink;
                 f.tm.color = f.col.A(a);
                 f.shadow.color = new Color(0, 0, 0, a * 0.85f);
             }

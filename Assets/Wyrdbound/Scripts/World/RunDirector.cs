@@ -419,6 +419,7 @@ namespace Wyrdbound
             var root = World.Root;
             var sr = Mats.SR(root, "spring", PropArt.Get("well", Biomes.Hall), Sort.Y(pos.y));
             sr.transform.position = pos;
+            View3D.Stand(sr.transform);
             sr.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
             World.Grid.Obstacles.Add(new Obstacle(pos, 0.9f, false, "spring"));
             bool used = false;
@@ -473,11 +474,12 @@ namespace Wyrdbound
                 var go = new GameObject("ware");
                 go.transform.SetParent(World.Root, false);
                 go.transform.position = pos;
-                var ped = Mats.SR(go.transform, "ped", PropArt.Get("stone", run.Biome), Sort.Y(pos.y));
+                var wareUp = View3D.UprightChild(go.transform);
+                var ped = Mats.SR(wareUp, "ped", PropArt.Get("stone", run.Biome), Sort.Y(pos.y));
                 ped.transform.localScale = new Vector3(0.7f, 0.45f, 1f);
-                var icon = Mats.SR(go.transform, "icon", SpriteLib.RewardIcon(w.Icon == Reward.Story ? Reward.Story : w.Icon, w.God, false), Sort.Y(pos.y) + 1);
+                var icon = Mats.SR(wareUp, "icon", SpriteLib.RewardIcon(w.Icon == Reward.Story ? Reward.Story : w.Icon, w.God, false), Sort.Y(pos.y) + 1);
                 icon.transform.localPosition = new Vector3(0f, 1.5f, 0f);
-                var glow = Mats.SR(go.transform, "glow", SpriteLib.Glow, Sort.Y(pos.y), Pickup.Tint(w.Icon, w.God).A(0.4f), true);
+                var glow = Mats.SR(wareUp, "glow", SpriteLib.Glow, Sort.Y(pos.y), Pickup.Tint(w.Icon, w.God).A(0.4f), true);
                 glow.transform.localPosition = icon.transform.localPosition;
                 glow.transform.localScale = new Vector3(1.6f, 1.6f, 1f);
                 var label = LevelBuilder.Label(go.transform, price + " silver", pos + new Vector2(0f, 0.55f), Pal.Silver, 0.8f);

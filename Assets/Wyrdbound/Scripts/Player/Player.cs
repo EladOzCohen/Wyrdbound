@@ -95,6 +95,7 @@ namespace Wyrdbound
             }
             Weapon.Init(this);
             WeaponSR.sprite = SpriteLib.Weapon(Weapon.Id);
+            Model?.SetWeapon(ModelSpecs.PlayerWeapon(Weapon.Id));
         }
 
         public void OnStatsChanged()
@@ -454,7 +455,12 @@ namespace Wyrdbound
                 else ang = side > 0 ? -55f : -125f;
             }
             ang = Mathf.Repeat(ang + 180f, 360f) - 180f;
-            if (Rig != null)
+            if (Model != null)
+            {
+                var hand = Model.HandWorld;
+                WeaponPivot.position = new Vector3(hand.x, hand.y, 0f);
+            }
+            else if (Rig != null)
             {
                 var hand = Rig.HandWorld;
                 WeaponPivot.position = new Vector3(hand.x, hand.y, 0f);
@@ -465,9 +471,22 @@ namespace Wyrdbound
             WeaponSR.transform.localPosition = new Vector3(WeaponExtend, 0f, 0f);
             bool behind = Mathf.Sin(ang * Mathf.Deg2Rad) > 0.35f;
             WeaponSR.sortingOrder = Body.sortingOrder + (behind ? -5 : 3);
-            WeaponSR.enabled = !Dead && !WeaponHidden;
+            WeaponSR.enabled = !Dead && !WeaponHidden && Model == null;
             WeaponSR.color = new Color(1f, 1f, 1f, Body.color.a);
             trail?.Feed(WeaponSwinging && !WeaponHidden, WeaponPivot.position, WeaponPivot.position + WeaponPivot.right * WeaponReach, trailColor);
+        }
+
+        /// <summary>A melee step started: play a matching 3D swing whose contact frame lands on the strike.</summary>
+        public void OnSwingBegin(Step s, float speed)
+        {
+            if (Model == null) return;
+            float windup = s.Windup / speed, total = (s.Windup + s.Active + s.Recover * 0.8f) / speed;
+            string clip;
+            if (s.Shape == 2) clip = "2H_Melee_Attack_Spinning";
+            else if (s.Shape == 1) clip = "1H_Melee_Attack_Stab";
+            else if (s.Heavy) clip = "2H_Melee_Attack_Chop";
+            else clip = s.Flip ? "1H_Melee_Attack_Slice_Horizontal" : "1H_Melee_Attack_Slice_Diagonal";
+            Model.SwingTimed(clip, windup, total);
         }
 
         protected override float RigMaxSpeed => S.MoveSpeed;
@@ -475,6 +494,12 @@ namespace Wyrdbound
         protected override void FillRig(ref RigInput r)
         {
             if (Dashing) { r.Action = RigAction.Dash; return; }
+            if (Model != null)
+            {
+                if (castAnim > 0f) { r.Action = RigAction.Throw; r.ActionT = 1f - castAnim / 0.32f; }
+                else if (WeaponSwinging && Weapon != null && Weapon.Id == "bow") { r.Action = RigAction.Shoot; r.ActionT = 1f; }
+                return;
+            }
             if (castAnim > 0f) { r.Action = RigAction.Throw; r.ActionT = 1f - castAnim / 0.32f; }
             if (WeaponSwinging)
             {
