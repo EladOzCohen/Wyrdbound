@@ -16,6 +16,7 @@ namespace Wyrdbound
             amb.Init(g, b, seed);
             foreach (var o in g.Obstacles) Prop(root, o, b, true, amb);
             foreach (var o in g.Decor) Prop(root, o, b, false, amb);
+            Room3D.BackWalls(g, b, root, seed, amb);
             Backdrop.Create(root, b, seed);
             var cam = Game.I.Cam;
             cam.Cam.backgroundColor = b.Bg;

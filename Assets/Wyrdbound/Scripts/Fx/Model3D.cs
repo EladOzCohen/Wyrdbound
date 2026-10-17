@@ -6,7 +6,8 @@ namespace Wyrdbound
     /// <summary>How one character id is cast from the KayKit (CC0) models.</summary>
     public sealed class ModelSpec
     {
-        public string Model;            // Resources path of the character FBX
+        public string Model = "";       // Resources path of the character FBX
+        public string Proc;             // or a creature built in code: serpent, larva, bell, dragon
         public float Height = 1.6f;     // world height of a 2.5-unit KayKit body
         public Color Tint = Color.white;
         public float TintAmt;
@@ -66,6 +67,12 @@ namespace Wyrdbound
             Add("odin", new ModelSpec { Model = Adv + "Mage", Height = 1.9f, Tint = U.Hex("5a6a8a"), TintAmt = 0.55f, Rim = Pal.God(God.Odin), Show = new[] { "2H_Staff" } });
             Add("njord", new ModelSpec { Model = Adv + "Barbarian", Height = 1.85f, Tint = U.Hex("3a7a9a"), TintAmt = 0.5f, Rim = Pal.God(God.Njord), Show = new[] { "1H_Axe" } });
 
+            // creatures built in code
+            Add("serpent", new ModelSpec { Proc = "serpent", Height = 1.6f, Tint = U.Hex("3a5a2a"), Rim = venom, RimAmt = 0.7f, Eyes = U.Hex("ffd040") });
+            Add("larva", new ModelSpec { Proc = "larva", Height = 1.4f, Tint = U.Hex("c8b48a"), Rim = U.Hex("ffe0a0"), RimAmt = 0.5f, Eyes = Pal.Blood });
+            Add("bell", new ModelSpec { Proc = "bell", Height = 1.25f, Tint = U.Hex("7a8a96"), Rim = ice, RimAmt = 0.8f, Eyes = ice });
+            Add("nidhogg_head", new ModelSpec { Proc = "dragon", Height = 2.6f, Tint = U.Hex("2e4a2a"), Rim = venom, RimAmt = 0.9f, Eyes = U.Hex("ffcf3a") });
+
             // the dead of Hel
             Add("draugr", new ModelSpec { Model = Skel + "Skeleton_Warrior", Height = 1.6f, Tint = U.Hex("8a9a9a"), TintAmt = 0.3f, Rim = Pal.Frost, Weapon = SkelItem + "Skeleton_Axe", Shamble = true });
             Add("draugr_archer", new ModelSpec { Model = Skel + "Skeleton_Rogue", Height = 1.6f, Tint = U.Hex("8a9a9a"), TintAmt = 0.3f, Rim = Pal.Frost, Weapon = SkelItem + "Skeleton_Crossbow", Shoot = "2H_Ranged_Shoot", Aim = "2H_Ranged_Aiming" });
@@ -110,6 +117,7 @@ namespace Wyrdbound
         public string Id;
         Transform inst, handR, handL;
         Animation anim;
+        ProcBody proc;
         readonly List<Renderer> rends = new List<Renderer>();
         readonly List<SkinnedMeshRenderer> skins = new List<SkinnedMeshRenderer>();
         MaterialPropertyBlock mpb;
@@ -127,13 +135,23 @@ namespace Wyrdbound
         {
             var spec = ModelSpecs.Get(id);
             if (spec == null) return null;
-            var prefab = Resources.Load<GameObject>(spec.Model);
-            if (prefab == null) return null;
+            var prefab = spec.Proc == null ? Resources.Load<GameObject>(spec.Model) : null;
+            if (spec.Proc == null && prefab == null) return null;
             var go = new GameObject("model_" + id);
             go.transform.SetParent(parent, false);
             var m = go.AddComponent<Model3D>();
             m.Spec = spec;
             m.Id = id;
+            m.mpb = new MaterialPropertyBlock();
+            if (spec.Proc != null)
+            {
+                m.inst = new GameObject("proc").transform;
+                m.inst.SetParent(go.transform, false);
+                m.proc = ProcBody.Create(spec.Proc, m.inst, spec);
+                m.rends.AddRange(m.proc.Renderers);
+                go.transform.rotation = View3D.Face(Vector2.down);
+                return m;
+            }
             m.inst = Instantiate(prefab, go.transform, false).transform;
             m.inst.name = "mesh";
             m.inst.localPosition = Vector3.zero;
@@ -339,6 +357,7 @@ namespace Wyrdbound
 
         public void Animate(in RigInput r, Vector2 facing, float dt)
         {
+            if (proc != null) { AnimateProc(r, facing, dt); return; }
             if (anim == null) return;
             if (dt <= 0f) { anim.enabled = false; return; }
             anim.enabled = true;
@@ -421,6 +440,19 @@ namespace Wyrdbound
 
             inst.localPosition = new Vector3(0f, -sink, 0f);
             transform.localScale = new Vector3(sx * spawnScale, sy * spawnScale, sx * spawnScale);
+        }
+
+        void AnimateProc(in RigInput r, Vector2 facing, float dt)
+        {
+            if (dt <= 0f) return;
+            if (!r.Dead) transform.rotation = Quaternion.RotateTowards(transform.rotation, View3D.Face(facing), 600f * dt);
+            bool under = r.Underground && Spec.Proc != "dragon";
+            if (under != hiddenUnder) { hiddenUnder = under; ApplyVisible(); }
+            squash = U.Damp(squash, 0f, 10f, dt);
+            transform.localScale = new Vector3(1f + squash, 1f - squash * 0.8f, 1f + squash);
+            if (r.Dead && r.DeadT > 1.4f) sink = Mathf.Min(2.5f, sink + dt * 0.6f);
+            var p = transform.position;
+            proc.Tick(r, facing, new Vector2(p.x, p.y), sink, dt);
         }
 
         // ------------------------------------------------------------------ afterimages

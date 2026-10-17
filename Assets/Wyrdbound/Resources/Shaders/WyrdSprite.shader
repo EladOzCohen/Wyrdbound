@@ -19,6 +19,7 @@ Shader "Wyrd/Sprite"
         Lighting Off
         ZWrite Off
         ZTest [_ZTest]
+        Offset -2, -4
         Blend One OneMinusSrcAlpha
 
         Pass

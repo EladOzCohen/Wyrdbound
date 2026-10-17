@@ -11,7 +11,7 @@ namespace Wyrdbound
         SpriteRenderer arch, portal, icon, iconGlow;
         float t;
         Color col;
-        bool used;
+        bool used, three;
 
         public static Door Create(Vector2 spot, RoomPlan plan, Biome b, bool reveal)
         {
@@ -33,6 +33,16 @@ namespace Wyrdbound
             d.iconGlow.transform.localScale = new Vector3(2f, 2f, 1f);
             d.icon = Mats.SR(up, "icon", ic, Sort.Fx - 29);
             d.icon.transform.localScale = new Vector3(1.15f, 1.15f, 1f);
+            // 3D: a stone doorway with the portal light standing inside its opening
+            if (Room3D.Doorway(go.transform, b) != null)
+            {
+                d.arch.enabled = false;
+                d.three = true;
+                d.portal.transform.SetParent(go.transform, false);
+                d.portal.transform.localPosition = new Vector3(0f, 0.05f, -1.05f);
+                d.portal.transform.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);
+                d.portal.transform.localScale = new Vector3(1.9f, 2.7f, 1f);
+            }
             Interactable.Add(go, 2.2f, () => (reveal ? plan.Label() : "An unknown path") + "  " + U.Tint("(enter)", Pal.Dim), () => d.Enter(), () => d.Open && !d.used);
             return d;
         }
@@ -96,7 +106,7 @@ namespace Wyrdbound
             float dt = Time.deltaTime;
             t += dt;
             float bob = Mathf.Sin(t * 2.2f) * 0.12f;
-            icon.transform.localPosition = new Vector3(0f, 4.15f + bob, 0f);
+            icon.transform.localPosition = new Vector3(0f, (three ? 2.9f : 4.15f) + bob, 0f);
             iconGlow.transform.localPosition = icon.transform.localPosition;
             float a = Open ? 0.45f + 0.15f * Mathf.Sin(t * 3f) : 0f;
             portal.color = col.A(a);

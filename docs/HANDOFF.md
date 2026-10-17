@@ -107,3 +107,17 @@ floor plane (XY) and replace only the view.** Height above the floor is **-Z**.
 - **Next (3D):** models for the creatures above; KayKit Dungeon walls/banners/torches dressing chamber edges;
   3D doors (`wall_doorway`); camera occlusion fade for tall pillars; tune tints/heights per character; higher-res
   floor painting (RoomArt.PPU 32 → 48) since the camera is closer now; FXAA (deferred has no MSAA).
+
+### 3D polish pass 2 (2026-10-17)
+- **Back walls** (`Room3D.BackWalls`): KayKit wall / cracked / broken segments along each chamber's far (north) rim,
+  never between camera and fight; mounted torches (real flame light via `Ambient.AddFlame`) and realm banners.
+- **3D doors** (`Room3D.Doorway` + `Door.cs`): `wall_doorway` arches; the portal glow stands in the opening.
+- **Creatures built in code** (`Fx/ProcModels.cs`, `ModelSpec.Proc`): `serpent`/`larva` (head + tapering body
+  following its own trail, jaw, rearing strike), `bell` (lathed bronze bell that swings to toll), `dragon`
+  (Níðhöggr's horned head with jaw). Níðhöggr's `BossSegment`s are 3D spined coils.
+- **Occlusion fade:** `Occluder` + `_Dither` (Bayer screen-door in `Wyrd/Lit`) fades tall props hiding Narfi.
+  `Wyrd/Lit` is `#pragma target 3.5` (needs >10 interpolators).
+- **Still 2D billboards:** helhound, garmr, bone_rat, raven, wraith, wight, bloat, mimir, norns. Free CC0 candidates
+  found (Quaternius, Google Drive; awaiting the user's OK to download): Wolf.fbx (Ultimate Animated Animals) for
+  helhound/Garmr, Ghost_Skull.fbx for wraith/wight, Pigeon.fbx (tinted black) for raven, GreenSpikyBlob.fbx for
+  bloat. Direct download: `https://drive.google.com/uc?export=download&id=<id>`; ids: Wolf `128WmNfZthQqZ1OZpinWCAJ8IgvjNcoSm`, Ghost_Skull `1pQDfJwnc4r3PiVL73h4waXkqFuFngl6Y`, Pigeon `1HV4WM2FRJXlq3Wz6awceZExVnRD_lPAp`, GreenSpikyBlob `1i8XpBxwTqM_4JRN0D986NfLT4_QPFAC6`, Dragon_Evolved `1_ColYvoIS7vj1N4qWrLuTmZmVK_lsu7j`.

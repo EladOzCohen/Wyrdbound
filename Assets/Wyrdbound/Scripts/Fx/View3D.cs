@@ -11,7 +11,7 @@ namespace Wyrdbound
     public static class View3D
     {
         /// <summary>Camera pitch below the horizon, and vertical field of view.</summary>
-        public const float Pitch = 52f, Fov = 30f;
+        public const float Pitch = 52f, Fov = 24f;
 
         /// <summary>The camera's rotation, kept current by CameraRig (billboards copy it).</summary>
         public static Quaternion CamRot = Quaternion.LookRotation(new Vector3(0f, Mathf.Cos(Pitch * Mathf.Deg2Rad), Mathf.Sin(Pitch * Mathf.Deg2Rad)), Vector3.back);

@@ -152,6 +152,9 @@ namespace Wyrdbound
     {
         public Entity Owner;
         float contactCd;
+        static Material segMat, spineMat;
+        MeshRenderer ball, spine;
+        MaterialPropertyBlock mpb3;
 
         public override bool Targetable => Owner != null && Owner.Targetable && gameObject.activeSelf;
         public override bool Invulnerable => Owner == null || Owner.Invulnerable;
@@ -172,6 +175,14 @@ namespace Wyrdbound
             seg.VisualHeight = 1.2f;
             seg.BuildVisual(s, radius * 2.4f, false);
             seg.baseScale = scale;
+            // 3D: a scaled, spined body coil in place of the sprite
+            if (segMat == null) { segMat = ProcMesh.Mat(U.Hex("2e4a2a"), Pal.Venom, 0.9f, 0.4f); spineMat = ProcMesh.Mat(U.Hex("c8b48a"), Pal.Venom, 0.4f, 0.2f); }
+            seg.Body.sprite = null;
+            float rr = radius * 1.05f * scale;
+            seg.ball = ProcMesh.Part(go.transform, "coil", ProcMesh.Sphere, segMat, new Vector3(0f, 0f, -rr * 0.8f), new Vector3(rr * 2.1f, rr * 2.1f, rr * 1.9f));
+            seg.spine = ProcMesh.Part(go.transform, "spine", ProcMesh.Cone, spineMat, new Vector3(0f, 0f, -rr * 1.6f), new Vector3(rr * 0.6f, rr * 1.1f, rr * 0.6f));
+            seg.spine.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            seg.mpb3 = new MaterialPropertyBlock();
             return seg;
         }
 
@@ -198,6 +209,14 @@ namespace Wyrdbound
             float dt = Time.deltaTime;
             contactCd -= dt;
             UpdateVisual(dt, Vector2.zero);
+            if (ball != null)
+            {
+                ball.enabled = spine.enabled = Body.enabled;
+                mpb3.SetFloat("_Flash", flash);
+                mpb3.SetColor("_FlashColor", flashColor);
+                ball.SetPropertyBlock(mpb3);
+                spine.SetPropertyBlock(mpb3);
+            }
             if (!Body.enabled || contactCd > 0f) return;
             var p = Player.I;
             if (p != null && !p.Dead && Vector2.Distance(p.Pos, Pos) < Radius + p.Radius)

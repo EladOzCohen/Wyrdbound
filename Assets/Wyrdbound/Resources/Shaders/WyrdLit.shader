@@ -16,6 +16,7 @@ Shader "Wyrd/Lit"
         _Emission ("Emission", Color) = (0,0,0,0)
         _Flash ("Flash", Range(0,1)) = 0
         _FlashColor ("Flash Color", Color) = (1,1,1,1)
+        _Dither ("Dither Fade", Range(0,1)) = 0
     }
     SubShader
     {
@@ -24,17 +25,18 @@ Shader "Wyrd/Lit"
 
         CGPROGRAM
         #pragma surface surf Standard fullforwardshadows addshadow vertex:vert
-        #pragma target 3.0
+        #pragma target 3.5
 
         sampler2D _MainTex;
         fixed4 _Color, _Tint, _RimColor, _Emission, _FlashColor;
-        half _TintAmt, _Gloss, _Rim, _Flash;
+        half _TintAmt, _Gloss, _Rim, _Flash, _Dither;
 
         struct Input
         {
             float2 uv_MainTex;
             float4 vcol;
             float3 viewDir;
+            float4 screenPos;
         };
 
         void vert (inout appdata_full v, out Input o)
@@ -45,6 +47,14 @@ Shader "Wyrd/Lit"
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
+            // screen-door fade so a pillar in front of Narfi never hides him
+            if (_Dither > 0.001)
+            {
+                float2 sp = floor(IN.screenPos.xy / max(IN.screenPos.w, 1e-5) * _ScreenParams.xy);
+                float4x4 bayer = float4x4(0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5) / 16.0;
+                float d = bayer[(uint)sp.x % 4][(uint)sp.y % 4];
+                clip(d + 0.03 - _Dither);
+            }
             fixed4 t = tex2D(_MainTex, IN.uv_MainTex) * _Color * IN.vcol;
             half lum = dot(t.rgb, half3(0.3, 0.55, 0.15));
             half3 tinted = lerp(t.rgb, lum * _Tint.rgb * 1.6, _TintAmt);

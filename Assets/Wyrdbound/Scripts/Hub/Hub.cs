@@ -74,6 +74,7 @@ namespace Wyrdbound
             var sr = Mats.SR(World.Root, kind, PropArt.Get(kind, Biomes.Hall), Sort.Y(pos.y));
             sr.transform.position = pos;
             View3D.Stand(sr.transform);
+            if (Room3D.Prop(World.Root, kind, pos, Mathf.Max(0.5f, radius), Biomes.Hall, 7) != null) sr.enabled = false;
             if (radius > 0f) World.Grid.Obstacles.Add(new Obstacle(pos, radius, true, kind));
             if (prompt != null)
             {

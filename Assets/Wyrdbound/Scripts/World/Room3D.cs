@@ -172,7 +172,8 @@ namespace Wyrdbound
             go.transform.SetParent(root, false);
             go.transform.position = View3D.At(pos);
             var rng = new Rng(seed);
-            go.transform.rotation = View3D.Face(U.Dir(rng.Range(0, 4) * 90f + rng.Range(-8f, 8f)));
+            bool turn = kind == "pillar" || kind == "stone";
+            go.transform.rotation = View3D.Face(turn ? U.Dir(rng.Range(0, 4) * 90f + rng.Range(-8f, 8f)) : Vector2.down);
             var inst = Object.Instantiate(prefab, go.transform, false);
             // measure, then scale to the wanted height and centre on the obstacle
             var bounds = Bounds(inst);
@@ -180,10 +181,108 @@ namespace Wyrdbound
             inst.transform.localScale = Vector3.one * s;
             var c = bounds.center * s;
             inst.transform.localPosition = new Vector3(-c.x, 0f, -c.z);
+            if (pm.Height > 1.6f) go.AddComponent<Occluder>().Init(pos, radius, pm.Height);
             foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
             {
                 var src = r.sharedMaterial;
                 var m = PropMat(kind, src != null ? src.mainTexture : null, b, pm.Tint);
+                var arr = new Material[r.sharedMaterials.Length];
+                for (int i = 0; i < arr.Length; i++) arr[i] = m;
+                r.sharedMaterials = arr;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                r.receiveShadows = true;
+            }
+            return go;
+        }
+
+        // ------------------------------------------------------------------ back walls and doors
+
+        /// <summary>
+        /// Ruined walls along the chamber's far (north) rim — never between the camera and the fight — with
+        /// mounted torches and realm banners. Door spots are left open for the doorway models.
+        /// </summary>
+        public static void BackWalls(RoomGrid g, Biome b, Transform root, int seed, Ambient amb)
+        {
+            var rng = new Rng(seed + 404);
+            var top = new int[g.W];
+            for (int x = 0; x < g.W; x++)
+            {
+                top[x] = -1;
+                for (int y = g.H - 1; y >= 0; y--) if (g.IsFloor(x, y)) { top[x] = y; break; }
+            }
+            string banner = "banner_" + BannerColor(b);
+            int cx0 = 0;
+            while (cx0 < g.W)
+            {
+                if (top[cx0] < 0) { cx0++; continue; }
+                int y = top[cx0], x0 = cx0;
+                while (cx0 < g.W && top[cx0] == y) cx0++;
+                float len = cx0 - x0;
+                if (len < 1.5f) continue;
+                int n = Mathf.Max(1, Mathf.RoundToInt(len / 2f));
+                float seg = len / n;
+                float edgeY = g.Origin.y + y + 1f;
+                for (int i = 0; i < n; i++)
+                {
+                    float cx = g.Origin.x + x0 + seg * (i + 0.5f);
+                    bool door = false;
+                    foreach (var d in g.DoorSpots)
+                        if (Mathf.Abs(cx - d.x) < seg * 0.5f + 1.5f && Mathf.Abs(edgeY - d.y) < 1.6f) door = true;
+                    if (door) continue;
+                    string kind = rng.Chance(0.2f) ? "wall_broken" : rng.Chance(0.25f) ? "wall_cracked" : "wall";
+                    var w = Place(root, Dun + kind, new Vector2(cx, edgeY + 0.3f), Vector2.down, new Vector3(seg / 4f, 0.6f, 0.55f), b, true);
+                    if (w == null) return;
+                    if (kind == "wall_broken") continue;
+                    float roll = rng.Value;
+                    if (roll < 0.28f)
+                    {
+                        Place(root, Dun + "torch_mounted", new Vector2(cx, edgeY + 0.02f), Vector2.down, Vector3.one * 0.75f, b, false, 1.35f);
+                        amb?.AddFlame(new Vector2(cx, edgeY - 0.05f + 0.85f), Pal.Ember);
+                    }
+                    else if (roll < 0.5f)
+                        Place(root, Dun + banner, new Vector2(cx, edgeY + 0.02f), Vector2.down, Vector3.one * 0.55f, b, false);
+                }
+            }
+        }
+
+        static string BannerColor(Biome b)
+        {
+            switch (b.Id)
+            {
+                case "nastrond": return "green";
+                case "gjoll": return "blue";
+                case "helgrind": return "red";
+                case "hall": return "patternA_red";
+                case "surface": return "brown";
+            }
+            return "white";
+        }
+
+        /// <summary>A stone doorway for a chamber exit (null if the model is missing).</summary>
+        public static GameObject Doorway(Transform parent, Biome b)
+        {
+            var go = Place(parent, Dun + "wall_doorway", Vector2.zero, Vector2.down, new Vector3(0.8f, 0.75f, 0.6f), b, true);
+            if (go == null) return null;
+            go.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+            return go;
+        }
+
+        /// <summary>Instantiate a KayKit piece standing on the floor at pos, facing dir, scaled per axis.</summary>
+        static GameObject Place(Transform root, string path, Vector2 pos, Vector2 dir, Vector3 scale, Biome b, bool tint, float height = 0f)
+        {
+            var prefab = Resources.Load<GameObject>(path);
+            if (prefab == null) return null;
+            string name = path.Substring(path.LastIndexOf('/') + 1);
+            var go = new GameObject(name);
+            go.transform.SetParent(root, false);
+            go.transform.position = View3D.At(pos, height);
+            go.transform.rotation = View3D.Face(dir);
+            var inst = Object.Instantiate(prefab, go.transform, false);
+            inst.transform.localScale = scale;
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+            {
+                var src = r.sharedMaterial;
+                var m = PropMat(name, src != null ? src.mainTexture : null, b, tint);
                 var arr = new Material[r.sharedMaterials.Length];
                 for (int i = 0; i < arr.Length; i++) arr[i] = m;
                 r.sharedMaterials = arr;
@@ -243,6 +342,39 @@ namespace Wyrdbound
         {
             if (mesh != null) Destroy(mesh);
             if (mats != null) foreach (var m in mats) if (m != null) Destroy(m);
+        }
+    }
+}
+
+namespace Wyrdbound
+{
+    /// <summary>Screen-door fades a tall prop while Narfi (or the cursor's target) is hidden behind it.</summary>
+    public sealed class Occluder : MonoBehaviour
+    {
+        Vector2 pos;
+        float radius, height, fade;
+        Renderer[] rends;
+        MaterialPropertyBlock mpb;
+
+        public void Init(Vector2 p, float r, float h)
+        {
+            pos = p; radius = r; height = h;
+            mpb = new MaterialPropertyBlock();
+        }
+
+        void LateUpdate()
+        {
+            if (rends == null) rends = GetComponentsInChildren<Renderer>();
+            var pl = Player.I;
+            float want = 0f;
+            if (pl != null && pl.gameObject.activeInHierarchy)
+            {
+                var d = pl.Pos - pos;
+                if (d.y > -0.2f && d.y < height * 1.1f && Mathf.Abs(d.x) < radius + 0.75f) want = 0.65f;
+            }
+            fade = Mathf.MoveTowards(fade, want, Time.unscaledDeltaTime * 3f);
+            mpb.SetFloat("_Dither", fade);
+            foreach (var r in rends) if (r != null) r.SetPropertyBlock(mpb);
         }
     }
 }

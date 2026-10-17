@@ -13,6 +13,7 @@ Shader "Wyrd/Additive"
         Lighting Off
         ZWrite Off
         ZTest [_ZTest]
+        Offset -2, -4
         Blend One One
 
         Pass
