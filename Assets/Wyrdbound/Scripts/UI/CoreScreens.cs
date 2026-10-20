@@ -66,7 +66,7 @@ namespace Wyrdbound
             }
             menu.Refresh();
 
-            var ver = UIK.Txt(Root, "Saga I · v0.1  —  every rune, every sound, woven from code", 18, Pal.Dim.A(0.6f), TextAnchor.LowerRight, FontStyle.Normal, "ver");
+            var ver = UIK.Txt(Root, "Saga I · v" + Application.version + "  —  every rune, every sound, woven from code", 18, Pal.Dim.A(0.6f), TextAnchor.LowerRight, FontStyle.Normal, "ver");
             ver.rectTransform.Place(new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-24, 16), new Vector2(900, 30));
         }
 

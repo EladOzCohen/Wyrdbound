@@ -131,3 +131,13 @@ floor plane (XY) and replace only the view.** Height above the floor is **-Z**.
 - **Model gallery:** `Wyrdbound.exe -wyrdtest -wyrdgallery -wyrdout DIR` lines up every 3D model in four groups and
   screenshots idle / run / windup / strike / death poses. Use it after changing `ModelSpecs`.
 - Still 2D billboards: bone_rat, mimir, norns (and props without a model: statue, tree, brazier, throne, gate...).
+
+## Releases for players (2026-10-20)
+- Players must never need Unity. `tools/make-release.ps1` → Unity batch build via `Editor/ReleaseTools.BuildRelease`
+  (version `ReleaseTools.Version`, generated rune icon `Assets/Wyrdbound/Branding/Icon.png` + `installer/Wyrdbound.ico`,
+  strips the *DoNotShip* folders) → Inno Setup (`installer/Wyrdbound.iss`, per-user install, no admin, Start menu +
+  optional desktop shortcut, uninstaller, English + Hebrew wizard) → portable zip. Outputs in `Builds/Release/`.
+- Inno Setup 6.7.3 installed on the dev PC via winget (`%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`).
+- v0.3.0 (3D) published as a GitHub Release with Setup.exe + Portable.zip. Verified: silent install → installed game
+  runs the bot with 0 errors → uninstall removes files, shortcut and the Apps entry. The 2D version is tag `v0.2-2d`.
+- The exe is unsigned, so SmartScreen warns ("More info → Run anyway"); a code-signing certificate costs money.
