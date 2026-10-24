@@ -49,6 +49,7 @@ namespace Wyrdbound
             var opts = new List<(string, Action)>();
             if (SaveSystem.HasSave && SaveSystem.Data.Flag("intro_seen")) opts.Add(("Continue the Saga", () => Game.I.ContinueGame()));
             opts.Add(("Begin a New Saga", NewSaga));
+            opts.Add(("How to Play", () => Game.I.UI.Push(new HowToPlayScreen())));
             opts.Add(("Settings", () => Game.I.UI.Push(new SettingsScreen())));
             opts.Add(("Quit", () => Game.I.Quit()));
             for (int i = 0; i < opts.Count; i++)
@@ -112,6 +113,7 @@ namespace Wyrdbound
             var opts = new List<(string, Action)>
             {
                 ("Resume", Close),
+                ("How to Play (controls & help)", () => Game.I.UI.Push(new HowToPlayScreen())),
                 ("Mímir's Lore (Codex)", () => Game.I.UI.Push(new CodexScreen())),
                 ("Settings", () => Game.I.UI.Push(new SettingsScreen())),
             };

@@ -85,6 +85,31 @@ namespace Wyrdbound
             if (test) gameObject.AddComponent<AutoTest>();
         }
 
+        /// <summary>
+        /// How much trouble Narfi is in right now (0..1), for the adaptive score: foes close by (bosses and elites
+        /// count more), low health, and having just been hit. The music's danger layer follows this.
+        /// </summary>
+        float Threat()
+        {
+            var p = Player;
+            if (p == null || !p.gameObject.activeInHierarchy || p.Dead) return 0f;
+            float crowd = 0f;
+            bool boss = false;
+            foreach (var e in Entity.All)
+            {
+                if (e == null || e.Team != Team.Enemy || e.Dead || !e.Targetable || e is BossSegment) continue;
+                if (e.IsBoss) boss = true;
+                float d = Vector2.Distance(e.Pos, p.Pos);
+                if (d > 9f) continue;
+                crowd += (e.IsBoss ? 3f : e.Elite ? 1.8f : 1f) * (1f - d / 9f);
+            }
+            float hp = p.MaxHP > 0f ? p.HP / p.MaxHP : 1f;
+            float low = Mathf.Clamp01((0.45f - hp) / 0.35f);
+            float hurt = Mathf.Clamp01(1f - (Time.time - p.LastHitTime) / 3f);
+            float t = Mathf.Clamp01(crowd / 4.5f) * 0.65f + low * 0.5f + hurt * 0.35f;
+            return Mathf.Clamp01(boss ? Mathf.Max(t, 0.45f) : t);
+        }
+
         /// <summary>Time multiplier used by the automated play-test.</summary>
         public float TestSpeed = 1f;
 
@@ -124,6 +149,17 @@ namespace Wyrdbound
                 UI.Push(new PauseScreen());
 
             UI.Tick();
+            CursorArt.Use((Mode == GameMode.Hub || Mode == GameMode.Run) && !UI.Modal && !transitioning);
+            if (Input.HelpDown && !transitioning && (Mode == GameMode.Hub || Mode == GameMode.Run) && !UI.Modal)
+                UI.Push(new HowToPlayScreen());
+            // newcomers get the guide once, the first time they are free to move in Hel's hall
+            if (Mode == GameMode.Hub && !transitioning && !UI.Modal && !SaveSystem.Data.Flag("howto_seen") && GetComponent<AutoTest>() == null)
+            {
+                SaveSystem.Data.SetFlag("howto_seen");
+                UI.Push(new HowToPlayScreen());
+            }
+            Hints.Tick();
+            Audio.Danger(Mode == GameMode.Run && !Paused ? Threat() : 0f);
             Audio.Tick();
 
             float dt = Time.deltaTime, udt = Time.unscaledDeltaTime;

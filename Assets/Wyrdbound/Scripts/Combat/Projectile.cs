@@ -148,6 +148,8 @@ namespace Wyrdbound
 
             if (!World.InRoom(Pos, 2f)) { End(false); return; }
             if (Spec.HitObstacles && World.Grid != null && World.Grid.BlocksShot(Pos)) { End(false); return; }
+            // Narfi's shots smash barrels and crates on the way
+            if (Target == Team.Enemy && Breakable.HitPoint(Pos, Spec.Radius)) { End(false); return; }
 
             foreach (var e in Entity.All.ToArray())
             {

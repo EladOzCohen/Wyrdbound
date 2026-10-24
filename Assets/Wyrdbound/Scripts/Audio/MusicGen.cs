@@ -4,9 +4,14 @@ using UnityEngine;
 namespace Wyrdbound
 {
     /// <summary>
-    /// Generative Nordic score. Each track renders two synchronized loops:
-    /// a "calm" layer (drone, plucked lyre, wind) and a "fury" layer (frame drums, bowed tagelharpa, low horn)
-    /// that the AudioManager crossfades in combat.
+    /// Generative Nordic score. Each track renders three synchronized loops that the AudioManager mixes live
+    /// from the state of the fight:
+    ///   calm   — drone, plucked lyre, wind, low horn (always playing)
+    ///   fury   — frame drums and bowed tagelharpa (in combat)
+    ///   danger — driving ostinato, war drums and horn blasts (when foes close in, Narfi is hurt or low)
+    /// A track name may carry a variation, "niflhel:2": a different key, seed, progression and groove, so each
+    /// chamber of a realm sounds related but new. Loops are 16 bars in two sections (A then B).
+    /// Rendering is pure math with no Unity objects, so it can run on a worker thread (RenderData).
     /// </summary>
     public static class MusicGen
     {
@@ -14,12 +19,43 @@ namespace Wyrdbound
         {
             public float root = 146.83f, bpm = 84f;
             public int[] scale = { 0, 2, 3, 5, 7, 8, 10 };
-            public int seed = 1, bars = 8;
+            public int seed = 1, bars = 16;
             public float drumDensity = 0.6f, lyre = 1f, bowed = 1f, drone = 1f, horn = 0.3f, wind = 0.4f;
             public bool heavy;
+            public int variant;
         }
 
+        static readonly int[][] Progressions =
+        {
+            new[] { 0, 0, 5, 6, 0, 3, 5, 4 },
+            new[] { 0, 5, 3, 6, 0, 5, 6, 0 },
+            new[] { 0, 3, 4, 0, 5, 3, 6, 4 },
+            new[] { 0, 6, 5, 6, 3, 4, 5, 0 },
+            new[] { 0, 0, 3, 3, 5, 5, 6, 4 },
+        };
+
         static Spec Get(string track)
+        {
+            int v = 0;
+            int colon = track.IndexOf(':');
+            if (colon >= 0) { int.TryParse(track.Substring(colon + 1), out v); track = track.Substring(0, colon); }
+            var s = GetBase(track);
+            s.variant = v;
+            if (v > 0)
+            {
+                // same realm, new piece: shifted key, new seed (motifs, drum fills, bowed line), nudged tempo and groove
+                int[] shift = { 0, -2, 3, -4, 2 };
+                s.root *= Mathf.Pow(2f, shift[v % shift.Length] / 12f);
+                s.seed += v * 101;
+                s.bpm *= 1f + ((v % 3) - 1) * 0.05f;
+                s.drumDensity = Mathf.Clamp01(s.drumDensity + ((v % 2 == 0) ? 0.1f : -0.1f));
+                s.horn = Mathf.Clamp01(s.horn + (v % 3 == 2 ? 0.25f : 0f));
+                s.lyre *= v % 3 == 1 ? 0.8f : 1f;
+            }
+            return s;
+        }
+
+        static Spec GetBase(string track)
         {
             switch (track)
             {
@@ -37,7 +73,8 @@ namespace Wyrdbound
             return new Spec();
         }
 
-        public static void Render(string track, out AudioClip calm, out AudioClip fury)
+        /// <summary>Render a track's three layers to sample arrays. Thread-safe (no Unity objects).</summary>
+        public static float[][] RenderData(string track)
         {
             var s = Get(track);
             float beat = 60f / s.bpm;
@@ -45,11 +82,14 @@ namespace Wyrdbound
             int n = (int)(len * Synth.SR);
             var a = new float[n];
             var b = new float[n];
+            var c = new float[n];
             var rng = new System.Random(s.seed);
 
-            // chord roots per bar (scale degrees), a dark i - VI - VII - i style progression with variation
-            int[] prog = { 0, 0, 5, 6, 0, 3, 5, 4 };
-            if (s.seed % 3 == 0) prog = new[] { 0, 5, 3, 6, 0, 5, 6, 0 };
+            // chord roots per bar (scale degrees): section A, then a contrasting section B
+            int pa = (s.seed + s.variant) % Progressions.Length;
+            int pb = (pa + 2 + s.variant) % Progressions.Length;
+            var prog = new int[s.bars];
+            for (int i = 0; i < s.bars; i++) prog[i] = i < 8 ? Progressions[pa][i % 8] : Progressions[pb][i % 8];
 
             if (s.drone > 0f) Drone(a, s, prog, beat);
             if (s.wind > 0f) Wind(a, s.wind, s.seed);
@@ -60,10 +100,82 @@ namespace Wyrdbound
             if (s.bowed > 0f) Bowed(b, s, prog, beat, rng);
             if (s.heavy) Drone(b, s, prog, beat, 0.5f);
 
+            Ostinato(c, s, prog, beat);
+            WarDrums(c, s, beat);
+            HornBlasts(c, s, prog, beat);
+
             Reverb(a, 0.32f);
             Reverb(b, 0.22f);
-            calm = Synth.Clip(track + "_calm", a, 0.55f);
-            fury = Synth.Clip(track + "_fury", b, s.heavy ? 0.75f : 0.6f);
+            Reverb(c, 0.18f);
+            return new[] { a, b, c };
+        }
+
+        public static void Render(string track, out AudioClip calm, out AudioClip fury, out AudioClip danger)
+        {
+            var d = RenderData(track);
+            MakeClips(track, d, out calm, out fury, out danger);
+        }
+
+        /// <summary>Turn rendered layers into clips (main thread only).</summary>
+        public static void MakeClips(string track, float[][] d, out AudioClip calm, out AudioClip fury, out AudioClip danger)
+        {
+            bool heavy = Get(track).heavy;
+            calm = Synth.Clip(track + "_calm", d[0], 0.55f);
+            fury = Synth.Clip(track + "_fury", d[1], heavy ? 0.75f : 0.6f);
+            danger = Synth.Clip(track + "_danger", d[2], 0.62f);
+        }
+
+        /// <summary>Danger layer: a relentless 16th-note pluck on the chord root and fifth, accented on the beat.</summary>
+        static void Ostinato(float[] buf, Spec s, int[] prog, float beat)
+        {
+            float step = beat * 0.25f;
+            int steps = s.bars * 16;
+            int[] pattern = { 0, 0, 4, 0, 0, 4, 0, 7, 0, 0, 4, 0, 7, 4, 0, 4 };
+            for (int k = 0; k < steps; k++)
+            {
+                int bar = Mathf.Min(prog.Length - 1, k / 16);
+                int deg = prog[bar] + (pattern[k % 16] == 7 ? 4 : pattern[k % 16] == 4 ? 2 : 0);
+                float f = Freq(s, deg, -1);
+                float amp = (k % 4 == 0 ? 0.55f : 0.32f) * (bar >= 8 ? 1.1f : 1f);
+                Pluck(buf, k * step, f, amp, (uint)(k * 13 + s.seed));
+            }
+        }
+
+        /// <summary>Danger layer: deep war drums on every beat, doubled at the end of each phrase.</summary>
+        static void WarDrums(float[] buf, Spec s, float beat)
+        {
+            int beats = s.bars * 4;
+            for (int k = 0; k < beats; k++)
+            {
+                bool phraseEnd = (k % 16) >= 14;
+                Drum(buf, k * beat, 52f, 0.32f, k % 4 == 0 ? 1.15f : 0.85f, (uint)(k * 7 + 3), true);
+                if (phraseEnd) Drum(buf, k * beat + beat * 0.5f, 58f, 0.25f, 0.8f, (uint)(k * 11 + 5), true);
+                if (k % 2 == 1) Drum(buf, k * beat, 300f, 0.04f, 0.35f, (uint)(k * 17 + 9), false);
+            }
+        }
+
+        /// <summary>Danger layer: short, rising horn calls every two bars.</summary>
+        static void HornBlasts(float[] buf, Spec s, int[] prog, float beat)
+        {
+            float barLen = beat * 4f;
+            for (int bar = 0; bar < prog.Length; bar += 2)
+            {
+                float start = bar * barLen + beat * 3f;
+                float f = Freq(s, prog[bar] + 4, -1);
+                int s0 = (int)(start * Synth.SR);
+                int len = (int)(beat * 1.4f * Synth.SR);
+                var lp = new Synth.Lp();
+                float ph = 0, ph2 = 0;
+                for (int i = 0; i < len && s0 + i < buf.Length; i++)
+                {
+                    float t = i / (float)Synth.SR;
+                    float bend = 1f - 0.04f * Mathf.Exp(-t / 0.08f);
+                    ph += f * bend / Synth.SR; ph2 += f * 2f * bend / Synth.SR;
+                    float env = Mathf.Clamp01(t / 0.05f) * Mathf.Clamp01((len / (float)Synth.SR - t) / 0.25f);
+                    float x = Synth.Saw(ph) + 0.35f * Synth.Saw(ph2);
+                    buf[s0 + i] += lp.Run(x, 0.06f + 0.06f * env) * env * 0.38f;
+                }
+            }
         }
 
         static float Freq(Spec s, int degree, int octave = 0)

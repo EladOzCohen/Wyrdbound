@@ -141,3 +141,31 @@ floor plane (XY) and replace only the view.** Height above the floor is **-Z**.
 - v0.3.0 (3D) published as a GitHub Release with Setup.exe + Portable.zip. Verified: silent install → installed game
   runs the bot with 0 errors → uninstall removes files, shortcut and the Apps entry. The 2D version is tag `v0.2-2d`.
 - The exe is unsigned, so SmartScreen warns ("More info → Run anyway"); a code-signing certificate costs money.
+
+## v0.4.0 — playtest feedback round (2026-10-24)
+Friends played v0.3.0. Their notes and what was done:
+- **Music got tiresome** → adaptive score. `MusicGen` renders 16-bar loops (A + B sections, ~45 s) in **three layers**
+  (calm / fury / **danger**: ostinato, war drums, horn calls) and **variations** (`"niflhel:2"`: other key, seed,
+  progression, tempo). Each chamber uses the next variation (`RunDirector.RealmTrack`). `AudioManager` renders on a
+  worker thread (`Prepare`, `RenderData` is Unity-free), keeps an LRU of 6 tracks, mixes three decks.
+  `Game.Threat()` → `Audio.Danger()`: nearby foes (bosses/elites weigh more), low HP, just hit. Boss themes and the
+  next realm's music are prepared ahead.
+- **Objects to interact with** → `World/Breakable.cs`: barrels/crates/kegs (KayKit) that shatter under melee or
+  Narfi's shots (silver, a little healing, sometimes Soul-Embers); lore rune-stones (read: +3 embers, a line of lore);
+  offering altars (−10% max HP → 45 silver or a Fate-Thread).
+- **Pounce** → Sidestep (`Player.TrySidestep`): C / Ctrl / mouse side button / RB. Short, fast hop to the side of the
+  aim, i-frames, own 0.55 s cooldown, no dash charge; the model plays Dodge_Left/Right.
+- **Attacks didn't follow the mouse** → in 3D the aim was measured on the floor. Now `CameraRig.ScreenToWorldAt`
+  intersects the cursor ray with a plane at chest height (`Player.AimHeight`). Verified by the feature test.
+- **Green blob after buying** → it was the painted stone pedestal left behind; wares now stand on a 3D stone column.
+- **Keys / Fury / Special / Call unclear** → `UI/HowToPlayScreen.cs` (Controls, Combat, Blessings, Growing stronger):
+  title menu, pause menu, H/F1, and auto-opened on the first free moment in Hel's hall. `UI/Hints.cs`: one-time tips
+  at the right moment (first fight, first shop, full Fury with/without a Call, out of runes, first death).
+- **Upgrades bought blind** → `Interactable.Detail`: shown under the prompt and as a mouse-hover tooltip (HUD). Wares,
+  hall stations and door rewards all explain themselves (`RunDirector.GodBlurb`, `Door.RewardInfo`).
+- **White cursor hard to see** → `UI/CursorArt.cs`: gold arrow in menus, gold reticle in play, dark outline.
+- Fixed: `Combat.HitCircle/HitLine` shared a static buffer that nested boon hits overwrote (exception in the Hel fight).
+- Test: `-wyrdfeatures` runs the guide, a hint, shop tooltip/prompt/purchase, breakables, aim check, sidestep,
+  rune-stone, altar and logs the music danger level. The normal bot logs each room's music track.
+- Note: the project folder vanished from the Desktop on 2026-10-24 and was re-cloned from GitHub (nothing lost).
+  Files are now CRLF (Windows checkout), so multi-line sed/perl edits need `\r?\n`.

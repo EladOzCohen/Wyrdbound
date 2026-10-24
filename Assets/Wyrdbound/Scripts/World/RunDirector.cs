@@ -183,6 +183,9 @@ namespace Wyrdbound
             }
             bool carve = plan.Kind == RoomKind.Combat || plan.Kind == RoomKind.MiniBoss || plan.Kind == RoomKind.Boss;
             LevelBuilder.Build(g, b, plan.Seed, carve, false);
+            // things to smash and use (not in boss arenas, the surface, or the hall)
+            if (plan.Kind == RoomKind.Combat || plan.Kind == RoomKind.MiniBoss) Breakable.Populate(g, new Rng(plan.Seed + 77), b, true);
+            else if (plan.Kind == RoomKind.Rest || plan.Kind == RoomKind.Story || plan.Kind == RoomKind.Passage) Breakable.Populate(g, new Rng(plan.Seed + 77), b, false);
 
             var p = Game.I.Player;
             p.Teleport(g.Entry);
@@ -197,8 +200,18 @@ namespace Wyrdbound
             SaveSystem.Data.SetFlag("codex_realm_" + b.Id);
 
             Game.I.Audio.Intensity(0f);
+            // every chamber gets its own variation of the realm's music; the next one renders in the background
             if (plan.Kind == RoomKind.Boss) Game.I.Audio.Music(b.Boss == "hel" ? "boss_hel" : "boss");
-            else Game.I.Audio.Music(b.Music);
+            else Game.I.Audio.Music(RealmTrack(b, run.Depth));
+            Game.I.Audio.Prepare(RealmTrack(b, run.Depth + 1));
+            // render the boss theme while the realm is still being crossed, and the next realm's music in the passage
+            if (run.RoomInRegion >= 3) Game.I.Audio.Prepare(b.Boss == "hel" ? "boss_hel" : "boss");
+            if (plan.Kind == RoomKind.Passage || plan.Kind == RoomKind.Boss)
+            {
+                var nb = Biomes.Run[Mathf.Clamp(run.Region + 1, 0, Biomes.Run.Length - 1)];
+                Game.I.Audio.Prepare(RealmTrack(nb, run.Depth + 1));
+                Game.I.Audio.Prepare(RealmTrack(nb, run.Depth + 2));
+            }
 
             switch (plan.Kind)
             {
@@ -440,7 +453,27 @@ namespace Wyrdbound
             public Reward Icon;
             public God God;
             public int Price;
+            public string Desc;
             public Action Buy;
+        }
+
+        /// <summary>The realm's music for a given chamber: three variations that rotate room by room.</summary>
+        public static string RealmTrack(Biome b, int depth) => b.Music + ":" + (((depth % 3) + 3) % 3);
+
+        /// <summary>One line on what each god's blessings do, for players who don't know the myths (or Hades).</summary>
+        public static string GodBlurb(God g)
+        {
+            switch (g)
+            {
+                case God.Thor: return "Thor's blessings add lightning: your blows call down bolts that leap from foe to foe.";
+                case God.Freyja: return "Freyja's blessings Enthrall and Charm: weakened foes turn and fight for you.";
+                case God.Tyr: return "Týr's blessings pass Verdict: marked foes take a heavy, delayed judgement strike.";
+                case God.Skadi: return "Skaði's blessings bring winter: Frostbite slows foes and Shatter breaks frozen ones.";
+                case God.Odin: return "Odin's blessings sharpen your eye: critical hits and Raven's Mark for big damage.";
+                case God.Njord: return "Njörðr's blessings bring the tide: waves that knock foes back and slam them into walls.";
+                case God.Ratatoskr: return "Ratatoskr, the gossiping squirrel, offers tricks: speed, extra dashes, cheaper prices.";
+            }
+            return "";
         }
 
         void SetupShop(Rng rng)
@@ -457,13 +490,20 @@ namespace Wyrdbound
 
             var all = new List<Ware>();
             var g = PickGod(rng, null);
-            all.Add(new Ware { Name = "Blessing of " + Pal.GodName(g), Icon = Reward.Boon, God = g, Price = 150, Buy = () => OfferBoons(g) });
-            all.Add(new Ware { Name = "Iðunn's Golden Apple", Icon = Reward.Apple, Price = 110, Buy = OfferApple });
-            all.Add(new Ware { Name = "Eir's Salve (restore 35%)", Icon = Reward.Salve, Price = 60, Buy = () => Player.I.HealAmount(Player.I.MaxHP * 0.35f) });
-            all.Add(new Ware { Name = "Ratatoskr's Gossip", Icon = Reward.Ratatoskr, God = God.Ratatoskr, Price = 120, Buy = () => OfferBoons(God.Ratatoskr) });
-            all.Add(new Ware { Name = "Grave-Key", Icon = Reward.Key, Price = 90, Buy = () => run.Keys++ });
-            all.Add(new Ware { Name = "Mead of the Dead", Icon = Reward.Mead, Price = 160, Buy = () => run.Mead++ });
-            all.Add(new Ware { Name = "Fate-Thread (re-weave a choice)", Icon = Reward.Story, Price = 70, Buy = () => run.Rerolls++ });
+            all.Add(new Ware { Name = "Blessing of " + Pal.GodName(g), Icon = Reward.Boon, God = g, Price = 150, Buy = () => OfferBoons(g),
+                Desc = "Choose 1 of 3 blessings from " + Pal.GodName(g) + " (a permanent power-up for this escape). " + GodBlurb(g) });
+            all.Add(new Ware { Name = "Iðunn's Golden Apple", Icon = Reward.Apple, Price = 110, Buy = OfferApple,
+                Desc = "Pick one of the blessings you already have and make it stronger (it gains a level)." });
+            all.Add(new Ware { Name = "Eir's Salve (restore 35%)", Icon = Reward.Salve, Price = 60, Buy = () => Player.I.HealAmount(Player.I.MaxHP * 0.35f),
+                Desc = "Instantly heals 35% of your maximum health." });
+            all.Add(new Ware { Name = "Ratatoskr's Gossip", Icon = Reward.Ratatoskr, God = God.Ratatoskr, Price = 120, Buy = () => OfferBoons(God.Ratatoskr),
+                Desc = "Choose 1 of 3 blessings from Ratatoskr. " + GodBlurb(God.Ratatoskr) });
+            all.Add(new Ware { Name = "Grave-Key", Icon = Reward.Key, Price = 90, Buy = () => run.Keys++,
+                Desc = "Kept even if you die. Spend Grave-Keys in Hel's Armory (back in the hall) to unlock new weapons." });
+            all.Add(new Ware { Name = "Mead of the Dead", Icon = Reward.Mead, Price = 160, Buy = () => run.Mead++,
+                Desc = "Kept even if you die. Give Mead to the people of Hel's hall to win their trust and a Keepsake." });
+            all.Add(new Ware { Name = "Fate-Thread (re-weave a choice)", Icon = Reward.Story, Price = 70, Buy = () => run.Rerolls++,
+                Desc = "Lets you re-roll a set of blessing choices once: press " + Game.I.Input.Glyph("reroll") + " on the blessing screen." });
             rng.Shuffle(all);
             if (all.FindIndex(w => w.Icon == Reward.Salve) > 2) all.Insert(0, all.Find(w => w.Icon == Reward.Salve));
             for (int i = 0; i < 3; i++)
@@ -475,10 +515,14 @@ namespace Wyrdbound
                 go.transform.SetParent(World.Root, false);
                 go.transform.position = pos;
                 var wareUp = View3D.UprightChild(go.transform);
-                var ped = Mats.SR(wareUp, "ped", PropArt.Get("stone", run.Biome), Sort.Y(pos.y));
-                ped.transform.localScale = new Vector3(0.7f, 0.45f, 1f);
+                // a 3D stone column holds the ware (falls back to the painted stone if the model is missing)
+                if (Room3D.Pedestal(go.transform, run.Biome) == null)
+                {
+                    var ped = Mats.SR(wareUp, "ped", PropArt.Get("stone", run.Biome), Sort.Y(pos.y));
+                    ped.transform.localScale = new Vector3(0.7f, 0.45f, 1f);
+                }
                 var icon = Mats.SR(wareUp, "icon", SpriteLib.RewardIcon(w.Icon == Reward.Story ? Reward.Story : w.Icon, w.God, false), Sort.Y(pos.y) + 1);
-                icon.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+                icon.transform.localPosition = new Vector3(0f, 1.55f, 0f);
                 var glow = Mats.SR(wareUp, "glow", SpriteLib.Glow, Sort.Y(pos.y), Pickup.Tint(w.Icon, w.God).A(0.4f), true);
                 glow.transform.localPosition = icon.transform.localPosition;
                 glow.transform.localScale = new Vector3(1.6f, 1.6f, 1f);
@@ -499,8 +543,12 @@ namespace Wyrdbound
                     icon.enabled = glow.enabled = false;
                     label.text = "SOLD";
                     label.color = Pal.Dim;
+                    Vfx.Motes(pos + new Vector2(0f, 1.2f), 16, Pickup.Tint(w.Icon, w.God), 0.6f, 2f, 0.9f);
+                    Game.I.UI.Toast("Bought: " + w.Name, Pal.Gold);
                     w.Buy();
                 }, () => !sold);
+                var wi = go.GetComponent<Interactable>();
+                wi.Detail = () => sold ? null : w.Desc;
             }
         }
 
@@ -582,7 +630,7 @@ namespace Wyrdbound
                     Pickup.Spawn(at + new Vector2(1.8f, 0f), Reward.Mead, God.None, 1);
                 }
                 Game.I.Audio.Intensity(0f);
-                Game.I.Audio.Music(run.Biome.Music);
+                Game.I.Audio.Music(RealmTrack(run.Biome, run.Depth));
                 SaveSystem.Save();
                 Story.Play("bossdown_" + b.Id, () => Clear());
             });
@@ -632,6 +680,13 @@ namespace Wyrdbound
                 Vfx.Motes(p.Center, 40, Pal.Narfi, 1f, 3f, 2f);
             }
             Game.I.AfterReal(2.6f, () => Game.I.OnRunWon());
+        }
+
+        /// <summary>Automated tests: jump straight into a chamber of a given kind in the current escape.</summary>
+        public void DebugRoom(RoomKind kind, int seed)
+        {
+            BuildRoom(new RoomPlan { Kind = kind, Reward = Reward.Boon, God = God.Thor, Seed = seed });
+            OnEntered();
         }
 
         public void Abandon()

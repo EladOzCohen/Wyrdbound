@@ -78,7 +78,6 @@ namespace Wyrdbound
     /// <summary>Hit queries and the damage pipeline.</summary>
     public static class Combat
     {
-        static readonly List<Entity> buf = new List<Entity>();
 
         static bool IsTarget(Entity e, Team team, Entity except)
         {
@@ -108,9 +107,8 @@ namespace Wyrdbound
         {
             int n = 0;
             dir = dir.Norm(Vector2.right);
-            buf.Clear();
-            buf.AddRange(Entity.All);
-            foreach (var e in buf)
+            // a fresh copy each call: hits can trigger nested area hits (boons) and spawn or remove foes
+            foreach (var e in Entity.All.ToArray())
             {
                 if (!IsTarget(e, team, except) || (exclude != null && exclude.Contains(e))) continue;
                 Vector2 d = e.Pos - origin;
@@ -130,9 +128,8 @@ namespace Wyrdbound
         public static int HitCircle(Vector2 c, float r, Team team, HitInfo h, HashSet<Entity> exclude = null, Action<Entity> onHit = null, Entity except = null)
         {
             int n = 0;
-            buf.Clear();
-            buf.AddRange(Entity.All);
-            foreach (var e in buf)
+            // a fresh copy each call: hits can trigger nested area hits (boons) and spawn or remove foes
+            foreach (var e in Entity.All.ToArray())
             {
                 if (!IsTarget(e, team, except) || (exclude != null && exclude.Contains(e))) continue;
                 Vector2 d = e.Pos - c;
@@ -150,10 +147,8 @@ namespace Wyrdbound
         public static int HitLine(Vector2 a, Vector2 b, float width, Team team, HitInfo h, HashSet<Entity> exclude = null, Action<Entity> onHit = null, Entity except = null)
         {
             int n = 0;
-            buf.Clear();
-            buf.AddRange(Entity.All);
             var dir = (b - a).Norm(Vector2.right);
-            foreach (var e in buf)
+            foreach (var e in Entity.All.ToArray())
             {
                 if (!IsTarget(e, team, except) || (exclude != null && exclude.Contains(e))) continue;
                 if (U.SegDist(e.Pos, a, b) > width * 0.5f + e.Radius) continue;

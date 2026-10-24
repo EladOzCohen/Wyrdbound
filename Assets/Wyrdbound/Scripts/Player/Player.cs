@@ -32,6 +32,9 @@ namespace Wyrdbound
         Color trailColor = new Color(0.82f, 1f, 0.92f);
         float castAnim;
         float noGodT = -9f;
+        float sideCd, dashSpeed = 23f;
+        bool sidestep;
+        int sideFlip = 1;
 
         float WeaponReach
         {
@@ -51,6 +54,9 @@ namespace Wyrdbound
         public bool Dashing => dashT > 0f;
         public override bool Invulnerable => iframes > 0f || Dashing || !Controllable;
         public float IFrames => iframes;
+        /// <summary>Height of Narfi's chest: the plane mouse-aiming is measured on.</summary>
+        float AimHeight => Model != null ? Model.Spec.Height * 0.55f : 0.5f;
+        public float SidestepCooldown => sideCd;
 
         public static Player Create(Transform parent)
         {
@@ -249,8 +255,10 @@ namespace Wyrdbound
         {
             if (inp.MouseAim)
             {
-                var w = Game.I.Cam.ScreenToWorld(inp.MouseScreen);
-                Aim = (w - (Pos + new Vector2(0f, 0.5f))).Norm(Aim);
+                // aim from the body to the cursor, both measured at chest height (true to what the player sees)
+                var w = Game.I.Cam.ScreenToWorldAt(inp.MouseScreen, AimHeight);
+                var d = w - Pos;
+                if (d.sqrMagnitude > 0.04f) Aim = d.normalized;
             }
             else if (inp.Stick2.sqrMagnitude > 0.2f) Aim = inp.Stick2.normalized;
             else if (inp.Move.sqrMagnitude > 0.1f) Aim = inp.Move.normalized;
@@ -263,6 +271,8 @@ namespace Wyrdbound
             DashCharges--;
             dashRecharge = S.DashRecharge;
             dashT = 0.17f;
+            dashSpeed = 23f;
+            sidestep = false;
             dashDir = dir.normalized;
             dashFrom = Pos;
             dashBuffer = 0f;
@@ -272,6 +282,33 @@ namespace Wyrdbound
             Game.I.Audio.Play("dash", 0.7f);
             Vfx.Dust(Pos, 5, World.Biome.Fog, 0.7f);
             RunState.Current?.Boons.OnDashStart(Pos, dashDir);
+        }
+
+        /// <summary>
+        /// Sidestep ("pounce"): a short, very fast hop to the side of where Narfi is aiming, with i-frames.
+        /// It has its own short cooldown and does not spend dash charges, so it is the tool for dodging
+        /// a swing without giving up position. Moving left/right picks the side; standing still alternates.
+        /// </summary>
+        void TrySidestep(Vector2 move)
+        {
+            if (sideCd > 0f || Dashing) return;
+            var aim = Aim.sqrMagnitude > 0.01f ? Aim.normalized : Facing.normalized;
+            var left = new Vector2(-aim.y, aim.x);
+            int side;
+            if (move.sqrMagnitude > 0.1f && Mathf.Abs(Vector2.Dot(move.normalized, left)) > 0.2f) side = Vector2.Dot(move, left) > 0f ? 1 : -1;
+            else { side = sideFlip; sideFlip = -sideFlip; }
+            sideCd = 0.55f;
+            sidestep = true;
+            dashT = 0.13f;
+            dashSpeed = 19f;
+            dashDir = left * side;
+            dashFrom = Pos;
+            lungeT = 0f;
+            Weapon?.Cancel();
+            Facing = aim;
+            Game.I.Audio.Play("dash", 0.55f, 1.25f);
+            Vfx.Dust(Pos, 4, World.Biome.Fog, 0.6f);
+            Model?.PlayOnce(side > 0 ? "Dodge_Left" : "Dodge_Right", 0.22f);
         }
 
         void TryCast()
@@ -356,6 +393,7 @@ namespace Wyrdbound
             iframes = Mathf.Max(0f, iframes - dt);
             castLock -= dt;
             castAnim = Mathf.Max(0f, castAnim - dt);
+            sideCd = Mathf.Max(0f, sideCd - dt);
             if (RunState.Current != null) { var g = RunState.Current.Boons.SlotGod(BoonSlot.Attack); trailColor = g == God.None ? new Color(0.82f, 1f, 0.92f) : Pal.God(g); }
             SinceDash += dt;
             dashBuffer -= dt;
@@ -379,7 +417,7 @@ namespace Wyrdbound
             if (Dashing)
             {
                 dashT -= dt;
-                vel = dashDir * 23f;
+                vel = dashDir * dashSpeed;
                 Physics(dt, vel * dt);
                 afterT -= dt;
                 if (afterT <= 0f)
@@ -391,7 +429,8 @@ namespace Wyrdbound
                 {
                     SinceDash = 0f;
                     moveVel = dashDir * S.MoveSpeed * 0.6f;
-                    RunState.Current?.Boons.OnDashEnd(dashFrom, Pos);
+                    if (!sidestep) RunState.Current?.Boons.OnDashEnd(dashFrom, Pos);
+                    sidestep = false;
                 }
             }
             else
@@ -421,6 +460,7 @@ namespace Wyrdbound
             if (canAct)
             {
                 if (inp.DashDown) TryDash(inp.Move);
+                if (inp.SidestepDown) TrySidestep(inp.Move);
                 Weapon?.Tick(dt, inp, !Dashing);
                 if (inp.CastDown && !Dashing) TryCast();
                 if (inp.CallDown) TryCall();
@@ -493,6 +533,7 @@ namespace Wyrdbound
 
         protected override void FillRig(ref RigInput r)
         {
+            if (Dashing && sidestep) return;   // the 3D model plays its own side-dodge clip
             if (Dashing) { r.Action = RigAction.Dash; return; }
             if (Model != null)
             {

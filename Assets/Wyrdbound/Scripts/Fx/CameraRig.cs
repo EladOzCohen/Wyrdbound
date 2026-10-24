@@ -97,6 +97,22 @@ namespace Wyrdbound
             View3D.CamPos = transform.position;
         }
 
+        /// <summary>
+        /// The floor position under the cursor, measured on a plane at a given height. Aiming uses chest height,
+        /// so pointing at a spot beside Narfi's body (not his feet) sends the attack that way.
+        /// </summary>
+        public Vector2 ScreenToWorldAt(Vector2 screen, float height)
+        {
+            var ray = Cam.ScreenPointToRay(new Vector3(screen.x, screen.y, 0f));
+            var plane = new Plane(Vector3.back, -height);
+            if (plane.Raycast(ray, out float d))
+            {
+                var w = ray.GetPoint(d);
+                return new Vector2(w.x, w.y);
+            }
+            return pos;
+        }
+
         public Vector2 ScreenToWorld(Vector2 screen)
         {
             var ray = Cam.ScreenPointToRay(new Vector3(screen.x, screen.y, 0f));

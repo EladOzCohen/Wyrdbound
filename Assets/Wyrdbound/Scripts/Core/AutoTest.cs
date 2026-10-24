@@ -44,8 +44,10 @@ namespace Wyrdbound
         void Start()
         {
             Game.I.Input.Pad = pad;
-            bool gallery = Array.IndexOf(Environment.GetCommandLineArgs(), "-wyrdgallery") >= 0;
-            StartCoroutine(gallery ? Gallery() : Run());
+            var args = Environment.GetCommandLineArgs();
+            bool gallery = Array.IndexOf(args, "-wyrdgallery") >= 0;
+            bool features = Array.IndexOf(args, "-wyrdfeatures") >= 0;
+            StartCoroutine(features ? Features() : gallery ? Gallery() : Run());
         }
 
         void OnLog(string msg, string stack, LogType type)
@@ -111,6 +113,130 @@ namespace Wyrdbound
             pad.Move = Vector2.zero;
             pad.Attack = pad.Special = pad.Cast = pad.Dash = pad.Call = false;
             pad.Confirm = Game.I.UI.Top != null && Time.frameCount % 8 == 0;
+        }
+
+        /// <summary>
+        /// -wyrdfeatures: exercise the newcomer and quality-of-life features one by one and photograph them:
+        /// the How-to-Play guide, a hint, shop tooltips / descriptions / a purchase, breakables, rune-stone and
+        /// altar, mouse aiming at chest height, the sidestep, and the adaptive music's track and danger level.
+        /// </summary>
+        IEnumerator Features()
+        {
+            var g = Game.I;
+            yield return Real(2.5f);
+            var guide = new HowToPlayScreen();
+            g.UI.Push(guide);
+            yield return Real(0.4f);
+            for (int i = 0; i < 4; i++) { guide.ShowTab(i); yield return Real(0.25f); yield return Snap("guide_" + i); }
+            g.UI.CloseAll();
+            yield return Real(0.3f);
+
+            g.NewGame();
+            yield return Real(2f);
+            pad.Cancel = true; yield return null; yield return null; pad.Cancel = false;
+            yield return Until(() => g.Mode == GameMode.Hub && !g.Transitioning, 20f, "hub");
+            yield return Real(1f);
+            g.UI.CloseAll();
+            yield return Real(0.5f);
+            Hints.Show("Aim with the mouse and " + U.Tint("[LMB/J]", Pal.Gold) + " to attack where the gold reticle points. " + U.Tint("[Space]", Pal.Gold) + " dashes, " + U.Tint("[C]", Pal.Gold) + " sidesteps.");
+            yield return Real(0.4f);
+            yield return Snap("hint");
+
+            g.StartRun();
+            yield return Until(() => g.Mode == GameMode.Run && !g.Transitioning, 20f, "run");
+            yield return Real(1f);
+            var run = RunState.Current;
+            run.Silver = 999;
+
+            // shop: tooltip on hover, description in the prompt, then a purchase leaving a SOLD pedestal
+            RunDirector.I.DebugRoom(RoomKind.Shop, 4242);
+            yield return Real(1.5f);
+            g.UI.CloseAll();
+            var wares = new List<Interactable>();
+            foreach (var it in Interactable.All) if (it != null && it.name == "ware") wares.Add(it);
+            Note("shop wares: " + wares.Count);
+            if (wares.Count > 0)
+            {
+                var w0 = (Vector2)wares[0].transform.position;
+                pad.Mouse = g.Cam.WorldToScreen(w0 + new Vector2(0f, 0.6f));
+                yield return Real(0.4f);
+                yield return Snap("shop_tooltip");
+                pad.Mouse = null;
+                g.Player.Teleport(w0 + new Vector2(0f, -1.1f));
+                yield return Real(0.4f);
+                yield return Snap("shop_prompt");
+                wares[0].Use();
+                yield return Real(0.8f);
+                g.UI.CloseAll();
+                yield return Real(0.3f);
+                yield return Snap("shop_sold");
+            }
+
+            // a combat chamber with things to smash and use
+            Breakable.ForceExtras = true;
+            RunDirector.I.DebugRoom(RoomKind.Combat, 777);
+            Breakable.ForceExtras = false;
+            yield return Real(1.2f);
+            Note("breakables: " + Breakable.All.Count + ", music track: " + g.Audio.CurrentTrack);
+            yield return Snap("breakables");
+
+            // aim: cursor just right of Narfi's chest must aim right, not into the floor behind him
+            var pp = g.Player.Pos;
+            pad.Mouse = g.Cam.WorldToScreen(pp + new Vector2(1.2f, 0.75f));
+            yield return Real(0.2f);
+            Note("aim with cursor right of chest: " + g.Player.Aim.ToString("F2") + " (expect about (1, 0))");
+            pad.Mouse = g.Cam.WorldToScreen(pp + new Vector2(0f, 2.5f));
+            yield return Real(0.2f);
+            Note("aim with cursor above head: " + g.Player.Aim.ToString("F2") + " (expect about (0, 1))");
+            pad.Mouse = g.Cam.WorldToScreen(pp + new Vector2(1.2f, 0.75f));
+
+            // sidestep: a quick hop to the side of the aim
+            var before = g.Player.Pos;
+            pad.Sidestep = true; yield return null; yield return null; pad.Sidestep = false;
+            yield return Real(0.07f);
+            yield return Snap("sidestep");
+            yield return Real(0.3f);
+            Note("sidestep moved " + (g.Player.Pos - before).ToString("F2") + ", cooldown " + g.Player.SidestepCooldown.ToString("F2"));
+            pad.Mouse = null;
+
+            // smash the nearest breakable
+            if (Breakable.All.Count > 0)
+            {
+                var b = Breakable.All[0];
+                var bp = (Vector2)b.transform.position;
+                int silver = run.Silver;
+                Breakable.HitPoint(bp, 0.2f);
+                yield return Real(0.3f);
+                Note("smashed a breakable: silver " + silver + " -> " + run.Silver + ", left " + Breakable.All.Count);
+                yield return Snap("smashed");
+            }
+
+            // the rune-stone and the altar
+            foreach (var it in Interactable.All.ToArray())
+            {
+                if (it == null || it.Prompt == null) continue;
+                string pr = it.Prompt();
+                if (pr.StartsWith("Read the rune-stone") || pr.StartsWith("Make an offering"))
+                {
+                    g.Player.Teleport((Vector2)it.transform.position + new Vector2(0f, -1.2f));
+                    yield return Real(0.4f);
+                    yield return Snap(pr.StartsWith("Read") ? "lorestone" : "altar");
+                    it.Use();
+                    yield return Real(0.6f);
+                    yield return Snap(pr.StartsWith("Read") ? "lorestone_read" : "altar_used");
+                }
+            }
+
+            // adaptive music: watch the danger level as foes close in
+            for (int i = 0; i < 8; i++)
+            {
+                yield return Real(0.75f);
+                Note("music " + g.Audio.CurrentTrack + " danger " + g.Audio.DangerLevel.ToString("F2") + " foes " + Combat.AllOf(Team.Enemy).Count + " hp " + g.Player.HP.ToString("F0"));
+            }
+            yield return Snap("fight_music");
+            Note("SUMMARY features errors=" + errors + " exceptions=" + exceptions + " shots=" + shots);
+            yield return Real(0.5f);
+            Application.Quit();
         }
 
         /// <summary>-wyrdgallery: line up every 3D model, pose them (idle, run, attack, death) and photograph each group.</summary>
@@ -280,6 +406,7 @@ namespace Wyrdbound
             if (!shotRoom && roomT > 1.8f && room != null)
             {
                 shotRoom = true;
+                Note("room " + rooms + " " + room.Kind + " music " + Game.I.Audio.CurrentTrack);
                 if (rooms <= 5 || room.Kind != RoomKind.Combat) Shot("room" + rooms.ToString("00") + "_" + room.Kind + "_" + run.Biome.Id);
             }
 

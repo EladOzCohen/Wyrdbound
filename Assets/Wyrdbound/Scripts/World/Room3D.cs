@@ -160,6 +160,11 @@ namespace Wyrdbound
             { "stone", new PropModel(Dun + "rubble_half", 1.3f) },
             { "chest", new PropModel(Dun + "chest_gold", 0.8f, false) },
             { "table", new PropModel(Dun + "table_medium", 0.75f, false) },
+            { "barrel", new PropModel(Dun + "barrel_small", 0.85f, false) },
+            { "crate", new PropModel(Dun + "box_small", 0.7f, false) },
+            { "keg", new PropModel(Dun + "keg", 0.9f, false) },
+            { "altar", new PropModel(Dun + "table_small_decorated_A", 1.05f, false) },
+            { "candles", new PropModel(Dun + "candle_triple", 0.55f, false) },
         };
 
         /// <summary>A 3D prop for this kind, or null when the kind has no model (it stays an upright sprite).</summary>
@@ -172,7 +177,7 @@ namespace Wyrdbound
             go.transform.SetParent(root, false);
             go.transform.position = View3D.At(pos);
             var rng = new Rng(seed);
-            bool turn = kind == "pillar" || kind == "stone";
+            bool turn = kind == "pillar" || kind == "stone" || kind == "barrel" || kind == "crate" || kind == "keg";
             go.transform.rotation = View3D.Face(turn ? U.Dir(rng.Range(0, 4) * 90f + rng.Range(-8f, 8f)) : Vector2.down);
             var inst = Object.Instantiate(prefab, go.transform, false);
             // measure, then scale to the wanted height and centre on the obstacle
@@ -256,6 +261,14 @@ namespace Wyrdbound
                 case "surface": return "brown";
             }
             return "white";
+        }
+
+        /// <summary>A short stone column that a shop ware or offering sits on (null if the model is missing).</summary>
+        public static GameObject Pedestal(Transform parent, Biome b)
+        {
+            var go = Place(parent, Dun + "column", Vector2.zero, Vector2.down, new Vector3(1.1f, 0.6f, 1.1f), b, true);
+            if (go != null) go.transform.localPosition = Vector3.zero;
+            return go;
         }
 
         /// <summary>A stone doorway for a chamber exit (null if the model is missing).</summary>

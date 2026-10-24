@@ -43,8 +43,37 @@ namespace Wyrdbound
                 d.portal.transform.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);
                 d.portal.transform.localScale = new Vector3(1.9f, 2.7f, 1f);
             }
-            Interactable.Add(go, 2.2f, () => (reveal ? plan.Label() : "An unknown path") + "  " + U.Tint("(enter)", Pal.Dim), () => d.Enter(), () => d.Open && !d.used);
+            var di = Interactable.Add(go, 2.2f, () => (reveal ? plan.Label() : "An unknown path") + "  " + U.Tint("(enter)", Pal.Dim), () => d.Enter(), () => d.Open && !d.used);
+            string info = reveal ? RewardInfo(plan) : "The reward behind this door is hidden until you step through.";
+            di.Detail = () => info;
             return d;
+        }
+
+        /// <summary>What lies through the door, in words a newcomer understands.</summary>
+        static string RewardInfo(RoomPlan p)
+        {
+            switch (p.Kind)
+            {
+                case RoomKind.Shop: return "A shop: spend the silver you picked up on healing, blessings and more.";
+                case RoomKind.Rest: return "A spring: rest and recover some health. No fighting.";
+                case RoomKind.Story: return "Someone is waiting to talk. No fighting.";
+                case RoomKind.Boss: return "The guardian of this realm. Beat it to move on to the next realm.";
+                case RoomKind.MiniBoss: return "A tougher fight against an elite foe, with a better reward.";
+                case RoomKind.Passage: return "A quiet passage into the next realm.";
+                case RoomKind.Surface: return "The way out of Hel.";
+            }
+            switch (p.Reward)
+            {
+                case Reward.Boon: return "Clear the room to earn a blessing from " + Pal.GodName(p.God) + ": choose 1 of 3 powers for this escape. " + RunDirector.GodBlurb(p.God);
+                case Reward.Ratatoskr: return "Clear the room to earn one of Ratatoskr's tricks. " + RunDirector.GodBlurb(God.Ratatoskr);
+                case Reward.Apple: return "Clear the room to earn a Golden Apple: one of your blessings gets stronger.";
+                case Reward.Embers: return "Clear the room to earn Soul-Embers: kept when you die, spent on permanent upgrades at the Rune-Stone in Hel's hall.";
+                case Reward.Key: return "Clear the room to earn a Grave-Key: kept when you die, unlocks new weapons in Hel's Armory.";
+                case Reward.Mead: return "Clear the room to earn Mead: kept when you die, gift it to the people of the hall.";
+                case Reward.Salve: return "Clear the room to earn Eir's Salve: heals you.";
+                case Reward.Silver: return "Clear the room to earn silver to spend in shops during this escape.";
+            }
+            return "Clear the room to claim the reward.";
         }
 
         static Reward IconReward(RoomPlan p)

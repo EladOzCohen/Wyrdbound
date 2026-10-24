@@ -196,6 +196,7 @@ namespace Wyrdbound
             var h = MakeHit(dmg, kind, cur.Knock);
             Vector2 origin = P.Pos + new Vector2(0f, 0.15f);
             int n = Strike(origin, dir, cur.Shape, cur.Range, cur.Arc, cur.Width, h, hits);
+            n += Breakable.StrikeArea(origin, dir, cur.Shape, cur.Range, cur.Arc, cur.Width);
             Color c = FxColor(kind);
             Vector2 fx = P.Pos + new Vector2(0f, 0.45f);
             if (cur.Shape == 1)

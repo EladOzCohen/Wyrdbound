@@ -14,7 +14,7 @@ namespace Wyrdbound
     {
         struct Raw
         {
-            public bool attack, special, cast, dash, interact, call, pause, reroll;
+            public bool attack, special, cast, dash, interact, call, pause, reroll, side, help;
             public bool up, down, left, right, confirm, cancel, click;
             public Vector2 move, stick2;
         }
@@ -41,6 +41,8 @@ namespace Wyrdbound
         public bool DashDown => now.dash && !prev.dash;
         public bool InteractDown => now.interact && !prev.interact;
         public bool CallDown => now.call && !prev.call;
+        public bool SidestepDown => now.side && !prev.side;
+        public bool HelpDown => now.help && !prev.help;
         public bool PauseDown => now.pause && !prev.pause;
         public bool RerollDown => now.reroll && !prev.reroll;
         public bool ConfirmDown => now.confirm && !prev.confirm;
@@ -54,7 +56,9 @@ namespace Wyrdbound
         public sealed class TestPad
         {
             public Vector2 Move;
-            public bool Attack, Special, Cast, Dash, Call, Confirm, Cancel;
+            public bool Attack, Special, Cast, Dash, Call, Confirm, Cancel, Sidestep;
+            /// <summary>When set, the virtual mouse sits here (screen pixels) and mouse-aiming is on.</summary>
+            public Vector2? Mouse;
         }
 
         public TestPad Pad;
@@ -107,6 +111,8 @@ namespace Wyrdbound
                     case "dash": return "(A)";
                     case "cast": return "(RT)";
                     case "call": return "(LT)";
+                    case "side": return "(RB)";
+                    case "help": return "(Start)";
                     case "confirm": return "(A)";
                     case "cancel": return "(B)";
                     case "reroll": return "(Back)";
@@ -122,6 +128,8 @@ namespace Wyrdbound
                 case "dash": return "[Space]";
                 case "cast": return "[Q]";
                 case "call": return "[F]";
+                case "side": return "[C]";
+                case "help": return "[H]";
                 case "confirm": return "[Enter]";
                 case "cancel": return "[Esc]";
                 case "reroll": return "[R]";
@@ -153,6 +161,8 @@ namespace Wyrdbound
                 r.call |= kb.fKey.isPressed;
                 r.pause |= kb.escapeKey.isPressed || kb.tabKey.isPressed;
                 r.reroll |= kb.rKey.isPressed;
+                r.side |= kb.cKey.isPressed || kb.leftCtrlKey.isPressed;
+                r.help |= kb.hKey.isPressed || kb.f1Key.isPressed;
                 r.up |= kb.wKey.isPressed || kb.upArrowKey.isPressed;
                 r.down |= kb.sKey.isPressed || kb.downArrowKey.isPressed;
                 r.left |= kb.aKey.isPressed || kb.leftArrowKey.isPressed;
@@ -168,6 +178,7 @@ namespace Wyrdbound
                 r.attack |= ms.leftButton.isPressed;
                 r.special |= ms.rightButton.isPressed;
                 r.cast |= ms.middleButton.isPressed;
+                r.side |= ms.backButton.isPressed || ms.forwardButton.isPressed;
             }
             if (gp != null)
             {
@@ -180,10 +191,11 @@ namespace Wyrdbound
                 if (r.stick2.sqrMagnitude > 0.1f) padUsed = true;
 
                 bool w = gp.buttonWest.isPressed, n = gp.buttonNorth.isPressed, s = gp.buttonSouth.isPressed, e = gp.buttonEast.isPressed;
-                bool rt = gp.rightTrigger.isPressed || gp.rightShoulder.isPressed;
+                bool rt = gp.rightTrigger.isPressed;
+                bool rb = gp.rightShoulder.isPressed;
                 bool lt = gp.leftTrigger.isPressed || gp.leftShoulder.isPressed;
                 r.attack |= w; r.special |= n; r.dash |= s; r.interact |= e;
-                r.cast |= rt; r.call |= lt;
+                r.cast |= rt; r.call |= lt; r.side |= rb;
                 r.pause |= gp.startButton.isPressed;
                 r.reroll |= gp.selectButton.isPressed;
                 r.up |= gp.dpad.up.isPressed || ls.y > 0.6f;
@@ -192,7 +204,7 @@ namespace Wyrdbound
                 r.right |= gp.dpad.right.isPressed || ls.x > 0.6f;
                 r.confirm |= s;
                 r.cancel |= e;
-                padUsed |= w || n || s || e || rt || lt || dp.sqrMagnitude > 0.1f || gp.startButton.isPressed;
+                padUsed |= w || n || s || e || rt || rb || lt || dp.sqrMagnitude > 0.1f || gp.startButton.isPressed;
                 if (padUsed) { UsingPad = true; MouseAim = false; }
             }
             if (kbUsed && !(gp != null && UsingPad && r.move.sqrMagnitude > 0.04f)) UsingPad = false;
@@ -220,6 +232,8 @@ namespace Wyrdbound
             r.call = Input.GetKey(KeyCode.F) || j4;
             r.pause = Input.GetKey(KeyCode.Escape) || Input.GetKey(KeyCode.Tab) || j7;
             r.reroll = Input.GetKey(KeyCode.R) || j6;
+            r.side = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl);
+            r.help = Input.GetKey(KeyCode.H) || Input.GetKey(KeyCode.F1);
             r.up = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) || axis.y > 0.6f;
             r.down = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) || axis.y < -0.6f;
             r.left = Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) || axis.x < -0.6f;
@@ -243,7 +257,9 @@ namespace Wyrdbound
                 r.call |= Pad.Call;
                 r.confirm |= Pad.Confirm;
                 r.cancel |= Pad.Cancel;
-                MouseAim = false;
+                r.side |= Pad.Sidestep;
+                if (Pad.Mouse.HasValue) { MouseScreen = Pad.Mouse.Value; MouseAim = true; UsingPad = false; }
+                else MouseAim = false;
             }
         }
     }

@@ -101,12 +101,16 @@ It needs the Unity editor above plus **Inno Setup 6** (free, `winget install JRS
 | Aim | Mouse | Right stick (or move direction, with aim assist) |
 | Attack | Left mouse / J | X |
 | Special | Right mouse / K | Y |
-| Cast rune | Q / L / Middle mouse | RT / RB |
+| Cast rune | Q / L / Middle mouse | RT |
 | Dash | Space / Shift | A |
+| Sidestep (quick side hop) | C / Ctrl / mouse side button | RB |
 | Interact | E | B |
 | Call a god (full Fury) | F | LT / LB |
 | Re-weave blessings | R | Back |
+| How to Play guide | H / F1 | (in the pause menu) |
 | Pause | Esc / Tab | Start |
+
+New to games like this? Press **H** in the game (or pick **How to Play** on the title screen) for a guide to every control, what Fury, Call and blessings are, and how dying makes you stronger.
 
 ### Building
 

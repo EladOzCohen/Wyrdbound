@@ -109,6 +109,42 @@ namespace Wyrdbound
             pbg.rectTransform.Stretch();
             promptText = UIK.Txt(promptRoot, "", 28, Pal.Text, TextAnchor.MiddleCenter, FontStyle.Normal, "promptText");
             promptText.rectTransform.Stretch(12, 0, 12, 0);
+            promptText.lineSpacing = 1.1f;
+            promptText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            // mouse-hover tooltip for wares and anything else that explains itself
+            tipRoot = UIK.Rect(root, "tooltip");
+            tipRoot.anchorMin = tipRoot.anchorMax = Vector2.zero;
+            tipRoot.pivot = new Vector2(0f, 0f);
+            tipRoot.sizeDelta = new Vector2(560, 150);
+            var tbg = UIK.Img(tipRoot, SpriteLib.Panel, Color.white, "tipBg");
+            tbg.rectTransform.Stretch();
+            tipText = UIK.Txt(tipRoot, "", 24, Pal.Text, TextAnchor.UpperLeft, FontStyle.Normal, "tipText");
+            tipText.rectTransform.Stretch(22, 16, 22, 16);
+            tipText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            tipText.verticalOverflow = VerticalWrapMode.Overflow;
+            tipRoot.gameObject.SetActive(false);
+        }
+
+        RectTransform tipRoot;
+        Text tipText;
+
+        void UpdateTooltip(Game g, Player p)
+        {
+            var inp = g.Input;
+            Interactable hover = null;
+            if (!inp.UsingPad && p.Controllable && !p.Dead && Application.isFocused)
+                hover = Interactable.HoverAt(g.Cam.ScreenToWorldAt(inp.MouseScreen, 0.6f), 1.1f);
+            tipRoot.gameObject.SetActive(hover != null);
+            if (hover == null) return;
+            string head = hover.Prompt != null ? hover.Prompt() : "";
+            tipText.text = U.Tint(head, Pal.Gold) + "\n" + hover.Detail();
+            float scale = tipRoot.lossyScale.x > 0f ? tipRoot.lossyScale.x : 1f;
+            var local = inp.MouseScreen / scale + new Vector2(26f, 18f);
+            float h = Mathf.Max(110f, tipText.preferredHeight + 36f);
+            float maxX = Screen.width / scale - 580f, maxY = Screen.height / scale - h - 10f;
+            tipRoot.sizeDelta = new Vector2(560, h);
+            tipRoot.anchoredPosition = new Vector2(Mathf.Min(local.x, maxX), Mathf.Min(local.y, maxY));
         }
 
         static void SetFill(Image img, float f)
@@ -231,7 +267,14 @@ namespace Wyrdbound
             var focus = p.Focus;
             bool prompt = focus != null && focus.Prompt != null && !p.Dead && p.Controllable;
             promptRoot.gameObject.SetActive(prompt);
-            if (prompt) promptText.text = U.Tint(g.Input.Glyph("interact"), Pal.Gold) + "  " + focus.Prompt();
+            if (prompt)
+            {
+                string detail = focus.Detail != null ? focus.Detail() : null;
+                promptText.text = U.Tint(g.Input.Glyph("interact"), Pal.Gold) + "  " + focus.Prompt() +
+                                  (string.IsNullOrEmpty(detail) ? "" : "\n<size=22>" + U.Tint(detail, Pal.Dim.Lit(1.35f)) + "</size>");
+                promptRoot.sizeDelta = new Vector2(1000, string.IsNullOrEmpty(detail) ? 56 : 66 + 26 * Mathf.Max(1, Mathf.CeilToInt(detail.Length / 78f)));
+            }
+            UpdateTooltip(g, p);
         }
 
         static int LevelSum(RunState run)

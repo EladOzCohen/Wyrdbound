@@ -66,6 +66,9 @@ namespace Wyrdbound
             Game.I.Cam.Snap(p.Pos);
             Game.I.Audio.Intensity(0f);
             Game.I.Audio.Music("hall");
+            // the first chamber's music renders while Narfi is still in the hall
+            Game.I.Audio.Prepare(RunDirector.RealmTrack(Biomes.Run[0], 0));
+            Game.I.Audio.Prepare(RunDirector.RealmTrack(Biomes.Run[0], 1));
             RefreshMarkers();
         }
 
@@ -80,8 +83,23 @@ namespace Wyrdbound
             {
                 var it = Interactable.Add(sr.gameObject, radius + 1.6f, prompt, use);
                 it.Offset = new Vector2(0f, -radius * 0.5f);
+                string detail = StationDetail(kind);
+                if (detail != null) it.Detail = () => detail;
             }
             return sr.gameObject;
+        }
+
+        /// <summary>Plain-language explanations of the hall's stations, for players new to the genre.</summary>
+        static string StationDetail(string kind)
+        {
+            switch (kind)
+            {
+                case "gate": return "Start a new escape attempt through the four realms. If you die, you wake up back here and keep what you've learned and earned.";
+                case "armory": return "Choose which weapon to take on your next escape. Unlock more weapons with Grave-Keys.";
+                case "runestone_big": return "Permanent upgrades (more health, extra dash, more damage...). Pay with Soul-Embers, which you collect during escapes and keep when you die.";
+                case "chest": return "Keepsakes are gifts from the people of the hall. Wear one to get its bonus on your next escape. Earn them by giving Mead.";
+            }
+            return null;
         }
 
         void AddNpc(string id, Vector2 pos, bool faceLeft, Color glow)
