@@ -185,3 +185,16 @@ Friends played v0.3.0. Their notes and what was done:
   `WyrdAcc*` materials are never recoloured by `Tint`.
 - Verified: gallery 0 errors; full bot run 35 rooms / 395 kills / 0 errors / 0 exceptions.
 - Known: the boots still show toe shapes; the bosses' Blender gear (bosses.py, nidhogg.py) is still not wired in.
+
+### Narfi's animations: Quaternius UAL (2026-10-28)
+- The user found the KayKit motion "mechanical": chibi clips move only the arms. Narfi now takes most clips from
+  Quaternius' **Universal Animation Library 1 + 2** (CC0, Standard/free editions, downloaded with the user's OK
+  from quaternius.itch.io into `tools/blender/vendor/ual/u1|u2`, gitignored). `NarfiBake` copies
+  `UAL1_Standard.fbx`/`UAL2_Standard.fbx` (no root motion) into `Art/Narfi/UAL1.fbx`/`UAL2.fbx` (gitignored) and
+  maps Unreal-style bones (pelvis, spine_01.., clavicle, fingers) to Humanoid; fingers are retargeted too.
+- `NarfiBake.Recipes` lists each game clip name <- source clip (+ recovery clip appended, e.g. Sword_Regular_A +
+  _A_Rec). Swing clips are **retimed** so the fastest right-hand frame lands at 42% (what `Model3D.SwingTimed`
+  expects). KayKit still supplies side/back dodges, forward dodge (the 0.17 s dash is too short for UAL's roll),
+  bow, spin, cheer; only KayKit clips get the 22° arms-in fix.
+- Fresh clone: the baked clips + prefab are committed, so the game builds without UAL; re-baking needs the zips.
+- Verified: bot run 35 rooms / 474 kills / 0 errors / 0 exceptions.
