@@ -38,7 +38,7 @@ namespace Wyrdbound.EditorTools
 
         static readonly Recipe[] Recipes =
         {
-            R("Idle", U1, "Sword_Idle", loop: true),
+            R("Idle", U1, "Idle_Loop", loop: true),   // Sword_Idle is a wide fencing stance, arm out: reads as a dance
             R("Walking_A", U1, "Walk_Loop", loop: true),
             R("Running_A", U1, "Jog_Fwd_Loop", loop: true),
             R("Dodge_Forward", KK, "Dodge_Forward"),   // the dash lasts 0.17 s: too short for UAL's 1.5 s roll
@@ -74,7 +74,7 @@ namespace Wyrdbound.EditorTools
         static readonly string[,] Fingers = { { "Thumb", "Thumb", "thumb" }, { "Index", "Index", "index" }, { "Middle", "Middle", "middle" }, { "Ring", "Ring", "ring" }, { "Little", "Pinky", "pinky" } };
         static readonly string[] Joints = { "Proximal", "Intermediate", "Distal" };
 
-        public override uint GetVersion() => 3;
+        public override uint GetVersion() => 5;
 
         void OnPreprocessModel()
         {
@@ -86,6 +86,9 @@ namespace Wyrdbound.EditorTools
             mi.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
             mi.materialSearch = ModelImporterMaterialSearch.Local;
             mi.importAnimation = assetPath != NarfiFbx;
+            // UAL's own Unity setup: bake the Blender axis conversion into the bones (else the rig's root is turned
+            // 90 degrees and the retarget leans the whole body)
+            if (assetPath == U1 || assetPath == U2) mi.bakeAxisConversion = true;
         }
 
         void OnPreprocessTexture()
@@ -184,6 +187,73 @@ namespace Wyrdbound.EditorTools
             Debug.Log("[Wyrdbound] Narfi bake:\n" + log);
         }
 
+        /// <summary>Render the baked prefab from the front and the side at a few moments of some clips (Builds/narfi_preview).
+        /// Batch mode without -nographics: -executeMethod Wyrdbound.EditorTools.NarfiBake.Preview</summary>
+        [MenuItem("Wyrdbound/Preview Narfi Clips")]
+        public static void Preview()
+        {
+            var go = (GameObject)Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(Prefab));
+            var anim = go.GetComponent<Animation>();
+            var camGo = new GameObject("cam");
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.15f, 0.17f, 0.2f);
+            cam.fieldOfView = 30f;
+            var light = new GameObject("light").AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.transform.rotation = Quaternion.Euler(40f, 150f, 0f);
+            var rt = new RenderTexture(360, 480, 24);
+            cam.targetTexture = rt;
+            var tex = new Texture2D(360, 480, TextureFormat.RGB24, false);
+            Directory.CreateDirectory("Builds/narfi_preview");
+            AnimationMode.StartAnimationMode();
+            string[] clips = { "Dodge_Left", "Idle", "Walking_A", "Running_A", "1H_Melee_Attack_Slice_Diagonal", "1H_Melee_Attack_Chop", "2H_Melee_Attack_Chop", "1H_Melee_Attack_Stab", "Hit_A", "Death_A" };
+            float[] at = { 0f, 0.25f, 0.42f, 0.6f, 0.85f };
+            foreach (var name in clips)
+            {
+                var clip = anim.GetClip(name);
+                if (clip == null) continue;
+                var sheet = new Texture2D(360 * at.Length, 480 * 2, TextureFormat.RGB24, false);
+                for (int v = 0; v < 2; v++)
+                    for (int i = 0; i < at.Length; i++)
+                    {
+                        AnimationMode.BeginSampling();
+                        AnimationMode.SampleAnimationClip(go, clip, at[i] * clip.length);
+                        AnimationMode.EndSampling();
+                        // skinning does not refresh for a batch-mode render: freeze the pose into plain meshes
+                        var frozen = new List<GameObject>();
+                        foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>())
+                        {
+                            var m = new Mesh();
+                            smr.BakeMesh(m, true);
+                            var f = new GameObject("frozen");
+                            f.transform.SetPositionAndRotation(smr.transform.position, smr.transform.rotation);
+                            f.AddComponent<MeshFilter>().sharedMesh = m;
+                            f.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
+                            frozen.Add(f);
+                            smr.enabled = false;
+                        }
+                        // the model faces +Z: front camera on +Z looking back, side camera on +X
+                        var dir = v == 0 ? Vector3.forward : Vector3.right;
+                        cam.transform.position = new Vector3(0f, 1.0f, 0f) + dir * 6.5f;
+                        cam.transform.LookAt(new Vector3(0f, 0.95f, 0f));
+                        cam.Render();
+                        RenderTexture.active = rt;
+                        tex.ReadPixels(new Rect(0, 0, 360, 480), 0, 0);
+                        tex.Apply();
+                        sheet.SetPixels(360 * i, 480 * (1 - v), 360, 480, tex.GetPixels());
+                        foreach (var f in frozen) Object.DestroyImmediate(f);
+                    }
+                File.WriteAllBytes($"Builds/narfi_preview/{name}.png", sheet.EncodeToPNG());
+            }
+            RenderTexture.active = null;
+            AnimationMode.StopAnimationMode();
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(camGo);
+            Object.DestroyImmediate(light.gameObject);
+            Debug.Log("[Wyrdbound] Narfi preview written to Builds/narfi_preview");
+        }
+
         static void CopyIn(string from, string to)
         {
             if (File.Exists(to)) return;
@@ -235,6 +305,8 @@ namespace Wyrdbound.EditorTools
                 {
                     // keep every motion in the pose (the game moves the character itself)
                     c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true;
+                    // "Original" (the root bone), never "Body Orientation at start": a recovery clip (Sword_*_Rec) starts
+                    // mid-turn and would be re-zeroed, leaving Narfi facing backwards by the end of the swing
                     c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true;
                     string n = ClipName(c.name);
                     c.loopTime = n.EndsWith("_Loop") || n == "Sword_Idle" || n == "Idle" || n.StartsWith("Walking") || n.StartsWith("Running");

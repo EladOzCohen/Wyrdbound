@@ -198,3 +198,10 @@ Friends played v0.3.0. Their notes and what was done:
   bow, spin, cheer; only KayKit clips get the 22° arms-in fix.
 - Fresh clone: the baked clips + prefab are committed, so the game builds without UAL; re-baking needs the zips.
 - Verified: bot run 35 rooms / 474 kills / 0 errors / 0 exceptions.
+- **Fix (same day): Narfi stood crooked / "danced".** Two causes: (1) UAL needs `bakeAxisConversion` (its Unity setup
+  guide), else the retarget leans the whole body; (2) root orientation must stay "Original": with "Body Orientation
+  at start" the appended recovery clips (`Sword_*_Rec`) re-zero mid-turn and Narfi ends a swing facing backwards.
+  Idle is now `Idle_Loop` (Sword_Idle is a wide fencing stance with an arm out).
+- **`NarfiBake.Preview`** (menu Wyrdbound → Preview Narfi Clips; batch mode *without* `-nographics`) renders front +
+  side sheets of key clips to `Builds/narfi_preview/*.png` (skinned meshes are frozen with BakeMesh, since batch
+  renders do not refresh skinning). Always check these before trusting top-down game screenshots.
