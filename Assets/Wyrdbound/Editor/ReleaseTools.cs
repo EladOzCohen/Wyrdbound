@@ -12,7 +12,7 @@ namespace Wyrdbound.EditorTools
     /// </summary>
     public static class ReleaseTools
     {
-        public const string Version = "0.4.0";
+        public const string Version = "0.5.0";
         public const string OutDir = "Builds/Release/Wyrdbound";
         const string IconPng = "Assets/Wyrdbound/Branding/Icon.png";
         const string IconIco = "installer/Wyrdbound.ico";
