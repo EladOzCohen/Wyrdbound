@@ -22,3 +22,4 @@ crashlytics-build.properties
 KayKitReport.txt
 *.log
 UpgradeLog.htm
+tools/blender/vendor/
