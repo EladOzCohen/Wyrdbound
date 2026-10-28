@@ -25,6 +25,7 @@ namespace Wyrdbound
         public float RawHeight = 2.5f;   // height of the source model in its own units
         public float Hover;              // flyers float this high above the floor
         public float RunRef = 4.2f;      // speed at which the run clip plays at 1x (for a 1.6-tall body)
+        public Dictionary<string, Color> MatColor;   // material-name fragment -> colour multiplied in (Narfi's red hair)
 
         public bool IsSkeleton => Model.Contains("/Skeletons/");
     }
@@ -52,7 +53,12 @@ namespace Wyrdbound
             var ice = Pal.Frost;
 
             // Narfi and the living
-            Add("narfi", new ModelSpec { Model = Adv + "RogueHooded", Height = 1.6f, Tint = U.Hex("41584f"), TintAmt = 0.22f, Rim = Pal.Narfi, RimAmt = 0.7f, Weapon = AdvItem + "axe_1handed" });
+            // Narfi is the MakeHuman body made in Blender (tools/blender/narfi.py), clips baked by Editor/NarfiBake.cs
+            Add("narfi", new ModelSpec
+            {
+                Model = "Models/Narfi", ShowAll = true, RawHeight = 1.91f, Height = 1.85f, Rim = Pal.Narfi, RimAmt = 0.45f, Eyes = Pal.Narfi,
+                Weapon = AdvItem + "axe_1handed", MatColor = new Dictionary<string, Color> { { "ponytail", U.Hex("c0532a") }, { "eyebrow", U.Hex("8a4a2a") } }
+            });
             Add("loki", new ModelSpec { Model = Adv + "RogueHooded", Height = 1.75f, Tint = U.Hex("3a7a3a"), TintAmt = 0.5f, Rim = Pal.Gold, Show = new[] { "Knife", "Knife_Offhand" } });
             Add("sigyn", new ModelSpec { Model = Adv + "Mage", Height = 1.6f, Tint = U.Hex("6a8ac8"), TintAmt = 0.45f, Show = new[] { "Spellbook" } });
             Add("hermod", new ModelSpec { Model = Adv + "Rogue", Height = 1.65f, Tint = U.Hex("8a7a4a"), TintAmt = 0.4f, Show = new[] { "Knife" } });
@@ -256,6 +262,8 @@ namespace Wyrdbound
         Material LitFor(Material src)
         {
             bool glow = src != null && src.name.Contains("Glow");
+            string sn = src != null ? src.name.ToLowerInvariant() : "";
+            bool cards = sn.Contains("hair") || sn.Contains("ponytail") || sn.Contains("eyebrow") || sn.Contains("eyelash");
             var tex = src != null && src.HasProperty("_MainTex") ? src.mainTexture : null;
             string key = Id + "|" + (glow ? "glow" : (src != null ? src.name : "-") + "|" + (tex != null ? tex.name : "none"));
             if (matCache.TryGetValue(key, out var m) && m != null) return m;
@@ -270,10 +278,19 @@ namespace Wyrdbound
             else
             {
                 m.SetColor("_Tint", Spec.Tint);
-                m.SetFloat("_TintAmt", Spec.TintAmt);
+                // WyrdAcc_ = gear painted in Blender with its final colours: never recoloured
+                m.SetFloat("_TintAmt", sn.StartsWith("wyrdacc") ? 0f : Spec.TintAmt);
                 m.SetColor("_RimColor", Spec.Rim);
                 m.SetFloat("_Rim", Spec.RimAmt);
             }
+            if (cards)
+            {
+                m.SetFloat("_Cutoff", 0.45f);
+                m.SetFloat("_Cull", 0f);
+            }
+            if (Spec.MatColor != null)
+                foreach (var kv in Spec.MatColor)
+                    if (sn.Contains(kv.Key)) m.SetColor("_Color", m.GetColor("_Color") * kv.Value);
             matCache[key] = m;
             return m;
         }

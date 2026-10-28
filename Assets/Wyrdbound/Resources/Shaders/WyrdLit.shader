@@ -1,5 +1,6 @@
 // Lit shader for every 3D surface in Wyrdbound: KayKit models, the chamber floor and its cliffs.
 // Albedo = texture x vertex colour, optionally recoloured toward _Tint (keeps the texture's shading).
+// Alpha-tested, double-sided surfaces (hair cards) via _Cutoff / _Cull.
 // Adds a cool rim light (the silhouette read Hades gets from its painted outlines), an emissive
 // term, and the same per-renderer hit flash the sprite shader has.
 Shader "Wyrd/Lit"
@@ -17,11 +18,14 @@ Shader "Wyrd/Lit"
         _Flash ("Flash", Range(0,1)) = 0
         _FlashColor ("Flash Color", Color) = (1,1,1,1)
         _Dither ("Dither Fade", Range(0,1)) = 0
+        _Cutoff ("Alpha Cutoff (0 = opaque)", Range(0,1)) = 0
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
     }
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="Geometry" }
         LOD 200
+        Cull [_Cull]
 
         CGPROGRAM
         #pragma surface surf Standard fullforwardshadows addshadow vertex:vert
@@ -29,7 +33,7 @@ Shader "Wyrd/Lit"
 
         sampler2D _MainTex;
         fixed4 _Color, _Tint, _RimColor, _Emission, _FlashColor;
-        half _TintAmt, _Gloss, _Rim, _Flash, _Dither;
+        half _TintAmt, _Gloss, _Rim, _Flash, _Dither, _Cutoff;
 
         struct Input
         {
@@ -56,6 +60,8 @@ Shader "Wyrd/Lit"
                 clip(d + 0.03 - _Dither);
             }
             fixed4 t = tex2D(_MainTex, IN.uv_MainTex) * _Color * IN.vcol;
+            // hair cards, brows and lashes are alpha-tested
+            if (_Cutoff > 0.001) clip(t.a - _Cutoff);
             half lum = dot(t.rgb, half3(0.3, 0.55, 0.15));
             half3 tinted = lerp(t.rgb, lum * _Tint.rgb * 1.6, _TintAmt);
             half rim = pow(1.0 - saturate(dot(normalize(IN.viewDir), o.Normal)), 3.0) * _Rim;

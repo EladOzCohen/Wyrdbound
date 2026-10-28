@@ -169,3 +169,19 @@ Friends played v0.3.0. Their notes and what was done:
   rune-stone, altar and logs the music danger level. The normal bot logs each room's music track.
 - Note: the project folder vanished from the Desktop on 2026-10-24 and was re-cloned from GitHub (nothing lost).
   Files are now CRLF (Windows checkout), so multi-line sed/perl edits need `\r?\n`.
+
+## Narfi in the game (2026-10-28)
+- Narfi is now the MakeHuman (MPFB2, CC0) body from `tools/blender/narfi.py`. `-- export` bakes the shape keys,
+  raises the arms to a T-pose (made the rest pose) and writes `Assets/Wyrdbound/Art/Narfi/Narfi.fbx` + textures.
+- `Editor/NarfiBake.cs` (menu **Wyrdbound → Bake Narfi**, or `-executeMethod Wyrdbound.EditorTools.NarfiBake.Bake`):
+  makes both Narfi and a copy of KayKit's `RogueHooded.fbx` (`Art/Narfi/KayKitAnims.fbx`) Humanoid with explicit
+  bone maps, samples 26 KayKit clips through the Humanoid retargeter (`AnimationMode.SampleAnimationClip`, the
+  PlayableGraph route did not move bones in batch mode), pulls the arms 22° in (KayKit's chibi arms stand wide),
+  and saves **Legacy** clips (`Art/Narfi/Clips`) + `Resources/Models/Narfi.prefab` with `handslot.r/l` bones for
+  KayKit weapons (scaled `WeaponScale` 0.62). So at runtime Narfi is a normal Model3D, no Animator.
+- `KayKitAnims.fbx` is a gitignored copy the bake makes itself. Re-run order after changing Narfi: `blender --background --python tools/blender/narfi.py -- export`, then the bake,
+  then the build. `ModelSpecs["narfi"]`: RawHeight 1.91, Height 1.85, `MatColor` tints the hair red.
+- `Wyrd/Lit` gained `_Cutoff` (alpha test) and `_Cull` for hair cards/brows/lashes (`Model3D.LitFor`, by material name);
+  `WyrdAcc*` materials are never recoloured by `Tint`.
+- Verified: gallery 0 errors; full bot run 35 rooms / 395 kills / 0 errors / 0 exceptions.
+- Known: the boots still show toe shapes; the bosses' Blender gear (bosses.py, nidhogg.py) is still not wired in.

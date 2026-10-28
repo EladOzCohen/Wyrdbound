@@ -23,3 +23,6 @@ KayKitReport.txt
 *.log
 UpgradeLog.htm
 tools/blender/vendor/
+NarfiBake.txt
+Assets/Wyrdbound/Art/Narfi/KayKitAnims.fbx
+Assets/Wyrdbound/Art/Narfi/KayKitAnims.fbx.meta

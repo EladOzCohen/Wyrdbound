@@ -2,6 +2,7 @@
 Narfi, son of Loki: a human character built on an MPFB2 (MakeHuman) body, entirely by script.
 Run:  blender --background --python tools/blender/narfi.py [-- body|dressed]
   body    = sculpted body + face + Unity-ready (Mixamo-named) skeleton only
+  export  = dressed, then T-posed, baked and exported to Assets/Wyrdbound/Art/Narfi/Narfi.fbx (+ textures) for Unity
   dressed = + skin, eyes, brows, lashes, hair, and Norse gear cut from the body itself (so it fits and is weighted)
 Renders front / side / back / face / game-angle previews to Builds/blender_preview/narfi_*.png.
 
@@ -255,7 +256,7 @@ def leather_fn(base, seed=0.0):
     return f
 
 
-if STAGE == "dressed":
+if STAGE in ("dressed", "export"):
     hips, spine, chest = bone_pos("Hips"), bone_pos("Spine1"), bone_pos("Spine2")
     neck, head = bone_pos("Neck"), bone_pos("Head")
     knee_l, ankle_l = bone_pos("LeftLeg"), bone_pos("LeftFoot")
@@ -432,6 +433,105 @@ if STAGE == "dressed":
     if BASE is not None:
         bpy.data.objects.remove(BASE)
         BASE = None
+
+# ------------------------------------------------------------------ export for Unity
+
+def bake_body(ob):
+    """Freeze the targets (shape keys) and apply every modifier but the armature (drops the helper geometry)."""
+    bpy.context.view_layer.objects.active = ob
+    if ob.data.shape_keys:
+        ob.shape_key_add(name="mix", from_mix=True)
+        mix = ob.data.shape_keys.key_blocks["mix"]
+        for v, kp in zip(ob.data.vertices, mix.data):
+            v.co = kp.co
+        ob.shape_key_clear()
+    for m in list(ob.modifiers):
+        if m.type != "ARMATURE":
+            with bpy.context.temp_override(object=ob, active_object=ob):
+                bpy.ops.object.modifier_move_to_index(modifier=m.name, index=0)
+                bpy.ops.object.modifier_apply(modifier=m.name)
+
+
+def t_pose():
+    """Raise the arms from MakeHuman's A-pose to a T-pose and make that the rest pose (Unity's Humanoid expects it)."""
+    from mathutils import Matrix
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="POSE")
+    for side, sx in (("Left", 1), ("Right", -1)):
+        for b in ("Arm", "ForeArm", "Hand"):
+            bpy.context.view_layer.update()
+            pb = rig.pose.bones["mixamorig:" + side + b]
+            m = pb.matrix.copy()
+            d = (pb.tail - pb.head).normalized()
+            q = d.rotation_difference(Vector((sx, 0, 0)))
+            p = m.to_translation()
+            pb.matrix = Matrix.Translation(p) @ q.to_matrix().to_4x4() @ Matrix.Translation(-p) @ m
+    bpy.context.view_layer.update()
+    bpy.ops.object.mode_set(mode="OBJECT")
+    dg = bpy.context.evaluated_depsgraph_get()
+    posed = {}
+    for ob in [o for o in bpy.context.scene.objects if o.type == "MESH"]:
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        posed[ob] = [v.co.copy() for v in me.vertices]
+        ev.to_mesh_clear()
+    for ob, cos in posed.items():
+        for v, c in zip(ob.data.vertices, cos):
+            v.co = c
+    bpy.context.view_layer.objects.active = rig
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+if STAGE == "export":
+    import shutil
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    for ob in meshes:
+        if ob is human:
+            bake_body(ob)
+            continue
+        if ob.data.shape_keys:
+            bpy.context.view_layer.objects.active = ob
+            ob.shape_key_clear()
+        for m in list(ob.modifiers):
+            if m.type != "ARMATURE":
+                with bpy.context.temp_override(object=ob, active_object=ob):
+                    bpy.ops.object.modifier_move_to_index(modifier=m.name, index=0)
+                    bpy.ops.object.modifier_apply(modifier=m.name)
+    t_pose()
+    # FBX only carries a texture wired straight into Base Color: undo the preview hair tint (the game tints it)
+    for m in bpy.data.materials:
+        if not m.use_nodes:
+            continue
+        for nd in m.node_tree.nodes:
+            if nd.type == "BSDF_PRINCIPLED" and nd.inputs["Base Color"].links:
+                mix = nd.inputs["Base Color"].links[0].from_node
+                if mix.type == "MIX" and mix.inputs[6].links:
+                    m.node_tree.links.new(mix.inputs[6].links[0].from_socket, nd.inputs["Base Color"])
+    out = os.path.join(ROOT, "Assets", "Wyrdbound", "Art", "Narfi")
+    os.makedirs(out, exist_ok=True)
+    # copy every image the materials use next to the FBX, so Unity finds them by name
+    for img in bpy.data.images:
+        src = bpy.path.abspath(img.filepath) if img.filepath else ""
+        if src and os.path.isfile(src):
+            shutil.copy2(src, os.path.join(out, os.path.basename(src)))
+            print("TEX", os.path.basename(src))
+    bpy.ops.object.select_all(action="DESELECT")
+    rig.select_set(True)
+    for ob in meshes:
+        ob.select_set(True)
+    path = os.path.join(out, "Narfi.fbx")
+    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, apply_unit_scale=True, apply_scale_options="FBX_SCALE_ALL",
+                             axis_forward="-Z", axis_up="Y", mesh_smooth_type="FACE",
+                             colors_type="SRGB", add_leaf_bones=False, object_types={"ARMATURE", "MESH"},
+                             use_armature_deform_only=True, bake_anim=False, path_mode="STRIP")
+    print("EXPORTED Narfi.fbx", len(meshes), "meshes", sum(len(o.data.polygons) for o in meshes), "faces", os.path.getsize(path) // 1024, "KB")
+    for ob in meshes:
+        print("MESH", ob.name, len(ob.data.vertices), [m.name for m in ob.data.materials if m], [md.type for md in ob.modifiers])
+
 
 t = (0, 0, h * 0.55)
 preview("narfi_" + STAGE, t, [((0.6, -4.2, h * 0.62), "front"), ((4.2, -0.4, h * 0.6), "side"), ((-0.8, 4.2, h * 0.62), "back"),
