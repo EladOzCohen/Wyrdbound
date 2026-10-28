@@ -58,7 +58,7 @@ else:
     HumanService.set_character_skin(os.path.join(DATA, "skins", "young_caucasian_male", "young_caucasian_male.mhmat"), human, skin_type="GAMEENGINE")
     for kind, path in (("Eyes", "eyes/high-poly/high-poly.mhclo"), ("Eyebrows", "eyebrows/eyebrow002/eyebrow002.mhclo"),
                        ("Eyelashes", "eyelashes/eyelashes02/eyelashes02.mhclo"), ("Hair", "hair/ponytail01/ponytail01.mhclo"),
-                       ("Clothes", "clothes/shoes03/shoes03.mhclo")):
+                       ):
         full = os.path.join(DATA, path)
         if os.path.isfile(full):
             HumanService.add_mhclo_asset(full, human, asset_type=kind, subdiv_levels=0, material_type="GAMEENGINE")
@@ -271,8 +271,19 @@ if STAGE == "dressed":
 
     gear.append(garment("Trousers", lambda c, n, w: legs(w) > 0.5 and ankle_l.z + 0.18 < c.z < waist_z - 0.01, 0.009,
                         leather_fn(WOOL, 1.0), thickness=0.004))
-    gear.append(garment("LegWraps", lambda c, n, w: c.z < knee_l.z - 0.06 and c.z > ankle_l.z + 0.13, 0.022,
-                        leather_fn(LEATHER, 2.0), thickness=0.006))
+    # soft leather boots (turnshoes) from the toes to below the knee, with a darker sole band
+    def boot_fn(p, n):
+        k = 0.8 + 0.3 * noise.noise(p * 25 + Vector((2.0, 0, 0))) + 0.15 * noise.noise(p * 6)
+        base = DARK_LEATHER if p.z < 0.035 else LEATHER
+        return [c * k for c in base]
+    gear.append(garment("Boots", lambda c, n, w: c.z < knee_l.z - 0.06, 0.018, boot_fn, thickness=0.007, smooth=6))
+    # leather thongs criss-crossing the shins
+    for side in ():   # shin thongs: disabled (read as loose wires from the game camera)
+        for i in range(4):
+            z = ankle_l.z + 0.1 + i * 0.075
+            ax = Vector((0.18 * (1 if i % 2 else -1), 0.0, 1.0))
+            gear.append(wrap_on_body(ring("Thong%d%d" % (side + 1, i), Vector((knee_l.x * side, knee_l.y, z)), ax, 0.09, 0.022, segs=30, rows=3),
+                                     0.027, 0.004, leather_fn(DARK_LEATHER, 9.0 + i), material("WyrdAcc_Leather", rough=0.55)))
     belt_z = waist_z - 0.025
     leather_m = material("WyrdAcc_Leather", rough=0.55)
     gear.append(wrap_on_body(ring("Belt", Vector((0, hips.y, belt_z)), Vector((0, 0, 1)), 0.26, 0.07), 0.016, 0.012,
@@ -281,8 +292,10 @@ if STAGE == "dressed":
     # a strap across the chest, over the left shoulder down to the right hip, front and back
     top = Vector((sh_l.x * 0.62, sh_l.y + 0.01, sh_l.z + 0.1))
     for name, y in (("StrapFront", -0.4), ("StrapBack", 0.4)):
-        path = [top, Vector((sh_l.x * 0.45, y, chest.z + 0.06)), Vector((0.0, y, chest.z - 0.1)),
-                Vector((-0.1, y, waist_z + 0.07))]
+        # a straight diagonal (seen from the front) projected onto the body; it ends tucked under the belt
+        end = Vector((-0.1, y, belt_z + 0.02))
+        start = Vector((sh_l.x * 0.5, y, chest.z + 0.12))
+        path = [top] + [start.lerp(end, k / 6) for k in range(7)]
         gear.append(wrap_on_body(strip(name, path, 0.055), 0.012, 0.007, leather_fn(DARK_LEATHER, 4.0), leather_m, project=(False, True, False)))
 
     # leather plate on the left shoulder
@@ -366,6 +379,15 @@ if STAGE == "dressed":
     set_material(fur, material("WyrdAcc_Fur", rough=0.9))
     bind(fur)
     gear.append(fur)
+
+    # a leather pouch hanging from the belt on the right hip
+    hip_r = Vector((-0.17, hips.y - 0.02, belt_z - 0.07))
+    pouch = paint(blob("Pouch", [E((hip_r.x, hip_r.y, hip_r.z), 0.06, (0.7, 0.55, 1.0)), E((hip_r.x, hip_r.y - 0.005, hip_r.z + 0.05), 0.045, (0.8, 0.6, 0.35))],
+                       voxel=0.006, rough=0.004, rough_scale=0.04), leather_fn(LEATHER, 12.0))
+    decimate(pouch, 900)
+    set_material(pouch, material("WyrdAcc_Leather", rough=0.55))
+    bind(pouch)
+    gear.append(pouch)
 
     # buckle on the belt, front
     belt_ob = next(g for g in gear if g.name == "Belt")
